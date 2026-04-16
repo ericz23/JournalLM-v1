@@ -15,4 +15,3 @@ class JournalEmbedding(Base):
     )
     chunk_index: Mapped[int] = mapped_column(Integer)
     chunk_text: Mapped[str] = mapped_column(Text)
-    embedding_json: Mapped[str] = mapped_column(Text)

@@ -5,42 +5,14 @@ import NarrativeSnapshot from "@/components/dashboard/NarrativeSnapshot";
 import DiningLog from "@/components/dashboard/DiningLog";
 import ReflectionsPanel from "@/components/dashboard/ReflectionsPanel";
 import LearningProgress from "@/components/dashboard/LearningProgress";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-type DashboardData = {
-  has_data: boolean;
-  date_range: { start: string; end: string } | null;
-  dining: Array<{
-    date: string;
-    restaurant: string;
-    dishes: string[];
-    meal_type: string;
-    sentiment: number;
-    description: string;
-  }>;
-  reflections: Array<{
-    date: string;
-    topic: string;
-    content: string;
-    is_actionable: boolean;
-  }>;
-  learning: Array<{
-    date: string;
-    subject: string;
-    milestone: string;
-    description: string;
-    sentiment: number;
-  }>;
-};
-
-type NarrativeData = {
-  content: string;
-  week_start: string;
-  week_end: string;
-  generated_at: string | null;
-  cached: boolean;
-};
+import {
+  API_BASE_URL,
+  ApiError,
+  type DashboardData,
+  type NarrativeData,
+  getDashboardData,
+  getDashboardNarrative,
+} from "@/lib/api";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
@@ -54,32 +26,37 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!mounted) return;
+    const controller = new AbortController();
+
     async function fetchDashboard() {
       try {
-        const res = await fetch(`${API}/api/dashboard/data`);
-        if (!res.ok) throw new Error("Dashboard data unavailable");
-        setData(await res.json());
+        setData(await getDashboardData(controller.signal));
       } catch (e) {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError) {
+          setError(e.message);
+          return;
+        }
         setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
-        setLoadingData(false);
+        if (!controller.signal.aborted) setLoadingData(false);
       }
     }
 
     async function fetchNarrative() {
       try {
-        const res = await fetch(`${API}/api/dashboard/narrative`);
-        if (!res.ok) throw new Error("Narrative unavailable");
-        setNarrative(await res.json());
+        setNarrative(await getDashboardNarrative(controller.signal));
       } catch {
         // non-critical
       } finally {
-        setLoadingNarrative(false);
+        if (!controller.signal.aborted) setLoadingNarrative(false);
       }
     }
 
     fetchDashboard();
     fetchNarrative();
+
+    return () => controller.abort();
   }, [mounted]);
 
   if (!mounted) {
@@ -99,7 +76,7 @@ export default function Dashboard() {
           </div>
           <p className="text-sm font-medium text-[var(--color-slate-accent-rose)]">{error}</p>
           <p className="mt-2 text-xs text-[var(--color-slate-text-dim)]">
-            Make sure the backend is running on {API}
+            Make sure the backend is running on {API_BASE_URL}
           </p>
         </div>
       </div>

@@ -1,20 +1,20 @@
-"""Journal embedding pipeline using Gemini text-embedding-004.
+"""Journal embedding pipeline using Gemini embeddings + sqlite-vec.
 
-Chunks journal entries, generates 768-d embeddings, persists them,
-and provides cosine-similarity search for thematic retrieval.
+Chunks journal entries, generates embeddings via gemini-embedding-001
+(3072-d), persists them in a vec0 virtual table, and provides KNN
+search for thematic retrieval.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
+import struct
 from dataclasses import dataclass
 
-import numpy as np
 from google import genai
 from google.genai import types
-from sqlalchemy import delete, select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -33,6 +33,11 @@ def _build_client() -> genai.Client:
     if not settings.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set")
     return genai.Client(api_key=settings.GEMINI_API_KEY)
+
+
+def _serialize_float32(vec: list[float]) -> bytes:
+    """Convert a list of floats to the compact binary format sqlite-vec expects."""
+    return struct.pack(f"{len(vec)}f", *vec)
 
 
 def chunk_text(text: str) -> list[str]:
@@ -133,12 +138,18 @@ async def embed_journals(db: AsyncSession) -> EmbedResult:
             continue
 
         for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
-            db.add(JournalEmbedding(
+            embedding_row = JournalEmbedding(
                 entry_date=entry.entry_date,
                 chunk_index=i,
                 chunk_text=chunk,
-                embedding_json=json.dumps(emb),
-            ))
+            )
+            db.add(embedding_row)
+            await db.flush()
+
+            await db.execute(
+                text("INSERT INTO vec_journal_chunks(rowid, embedding) VALUES (:rowid, :embedding)"),
+                {"rowid": embedding_row.id, "embedding": _serialize_float32(emb)},
+            )
 
         result.entries_processed += 1
         result.chunks_created += len(chunks)
@@ -161,33 +172,43 @@ async def semantic_search(
     query: str,
     top_k: int = 5,
 ) -> list[SemanticHit]:
-    """Embed the query and find the top-k most similar journal chunks."""
+    """Embed the query and find the top-k most similar journal chunks via sqlite-vec KNN."""
     client = _build_client()
 
-    all_embeddings = (await db.execute(
-        select(JournalEmbedding)
-    )).scalars().all()
+    query_vec = await _embed_query(client, query)
+    query_blob = _serialize_float32(query_vec)
 
-    if not all_embeddings:
+    knn_rows = (await db.execute(
+        text("""
+            SELECT rowid, distance
+            FROM vec_journal_chunks
+            WHERE embedding MATCH :query AND k = :k
+            ORDER BY distance
+        """),
+        {"query": query_blob, "k": top_k},
+    )).fetchall()
+
+    if not knn_rows:
         return []
 
-    query_vec = np.array(await _embed_query(client, query), dtype=np.float32)
+    matched_ids = [row[0] for row in knn_rows]
+    distances = {row[0]: row[1] for row in knn_rows}
 
-    scores: list[tuple[float, JournalEmbedding]] = []
-    for emb_row in all_embeddings:
-        doc_vec = np.array(json.loads(emb_row.embedding_json), dtype=np.float32)
-        cos_sim = float(np.dot(query_vec, doc_vec) / (
-            np.linalg.norm(query_vec) * np.linalg.norm(doc_vec) + 1e-9
+    meta_rows = (await db.execute(
+        select(JournalEmbedding).where(JournalEmbedding.id.in_(matched_ids))
+    )).scalars().all()
+
+    meta_by_id = {m.id: m for m in meta_rows}
+
+    results: list[SemanticHit] = []
+    for row_id in matched_ids:
+        meta = meta_by_id.get(row_id)
+        if not meta:
+            continue
+        results.append(SemanticHit(
+            entry_date=meta.entry_date.isoformat(),
+            chunk_text=meta.chunk_text,
+            score=round(1.0 - distances[row_id], 4),
         ))
-        scores.append((cos_sim, emb_row))
 
-    scores.sort(key=lambda x: x[0], reverse=True)
-
-    return [
-        SemanticHit(
-            entry_date=row.entry_date.isoformat(),
-            chunk_text=row.chunk_text,
-            score=round(sim, 4),
-        )
-        for sim, row in scores[:top_k]
-    ]
+    return results

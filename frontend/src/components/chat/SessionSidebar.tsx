@@ -1,14 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { ChatSessionSummary } from "@/lib/api";
 
-export type Session = {
-  id: string;
-  title: string | null;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-};
+export type Session = ChatSessionSummary;
 
 type Props = {
   sessions: Session[];

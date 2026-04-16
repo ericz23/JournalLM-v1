@@ -5,8 +5,13 @@ import ChatInput from "@/components/chat/ChatInput";
 import ContextPanel, { type ContextItem } from "@/components/chat/ContextPanel";
 import MessageBubble from "@/components/chat/MessageBubble";
 import SessionSidebar, { type Session } from "@/components/chat/SessionSidebar";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import {
+  createChatSession,
+  deleteChatSession,
+  getChatSession,
+  listChatSessions,
+  postChatMessageStream,
+} from "@/lib/api";
 
 type Message = {
   id?: number;
@@ -40,8 +45,8 @@ export default function ChatPage() {
 
   const loadSessions = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/chat/sessions`);
-      if (res.ok) setSessions(await res.json());
+      const sessions = await listChatSessions();
+      setSessions(sessions);
     } catch { /* backend may be offline */ }
   }, []);
 
@@ -51,14 +56,12 @@ export default function ChatPage() {
 
   const loadSession = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${API}/api/chat/sessions/${id}`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await getChatSession(id);
       setActiveId(id);
-      const msgs: Message[] = data.messages.map((m: Record<string, unknown>) => ({
-        id: m.id as number,
+      const msgs: Message[] = data.messages.map((m) => ({
+        id: m.id,
         role: m.role as "user" | "assistant",
-        content: m.content as string,
+        content: m.content,
         context: m.retrieved_context as ContextItem[] | undefined,
       }));
       setMessages(msgs);
@@ -70,13 +73,7 @@ export default function ChatPage() {
 
   const createSession = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/chat/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) return;
-      const session = await res.json();
+      const session = await createChatSession();
       setActiveId(session.id);
       setMessages([]);
       setContextItems([]);
@@ -87,7 +84,7 @@ export default function ChatPage() {
   const deleteSession = useCallback(
     async (id: string) => {
       try {
-        await fetch(`${API}/api/chat/sessions/${id}`, { method: "DELETE" });
+        await deleteChatSession(id);
         if (activeId === id) {
           setActiveId(null);
           setMessages([]);
@@ -107,13 +104,7 @@ export default function ChatPage() {
 
       if (!sessionId) {
         try {
-          const res = await fetch(`${API}/api/chat/sessions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          });
-          if (!res.ok) return;
-          const session = await res.json();
+          const session = await createChatSession();
           sessionId = session.id;
           setActiveId(sessionId);
         } catch {
@@ -130,29 +121,7 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, assistantMsg]);
 
       try {
-        const res = await fetch(
-          `${API}/api/chat/sessions/${sessionId}/message`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content }),
-          }
-        );
-
-        if (!res.ok || !res.body) {
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1] = {
-              ...copy[copy.length - 1],
-              content: "Sorry, something went wrong. Please try again.",
-            };
-            return copy;
-          });
-          setStreaming(false);
-          return;
-        }
-
-        const reader = res.body.getReader();
+        const reader = await postChatMessageStream(sessionId, content);
         const decoder = new TextDecoder();
         let buffer = "";
 
