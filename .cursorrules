@@ -1,0 +1,25 @@
+## 1. Project Overview & Philosophy
+JournalLM V1 is a local-first, standalone intelligence platform designed to bridge the gap between qualitative personal reflections (unstructured journals) and quantitative physiological data (health trackers). 
+
+The system treats a user's journal as a high-resolution data source. By utilizing **Agentic Event Extraction**, it "shreds" raw prose into atomic "Life Events" and "Reflections" to eliminate hallucination in RAG workflows and provide structured longitudinal analysis.
+
+---
+
+## 2. Technical Stack
+* **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, Shadcn UI, Recharts.
+* **Backend:** FastAPI (Python), SQLAlchemy (ORM).
+* **Database:** SQLite + `sqlite-vss` (for local vector similarity search).
+* **AI Layer:** Ollama (Local) or OpenAI/Claude (Hosted) for "Shredding" and RAG.
+* **Ingestion:** Git-Ops (Polling private GitHub repo via REST API).
+* **Integration:** Whoop API v2 (OAuth 2.0).
+
+---
+
+## 5. UI/UX: "Slate Intelligence" Theme
+* **Palette:** Background `#0F172A`, Surface `#1E293B`, Borders `#334155`.
+* **Dashboard Widgets:**
+    1.  **Weekly Narrative:** AI-generated hero text.
+    2.  **Social Heatmap:** GitHub-style dots representing extracted `SOCIAL` events.
+    3.  **Whoop Trends:** Dual-axis chart showing Recovery % vs. Strain.
+    4.  **Dining Log:** List of restaurants with positive/neutral sentiment badges.
+* **Chatbot Interface:** Split-screen view. Left side: Chat thread. Right side: "Retrieved Context" panel showing the exact Obsidian snippet or SQLite row used.
