@@ -95,6 +95,30 @@ async def _migrate_embeddings_to_vec0(conn) -> None:
     logger.info("Migration complete — embedding_json column removed.")
 
 
+async def _migrate_add_is_temporary(conn) -> None:
+    """Add is_temporary column to chat_sessions if missing (pre-existing DBs)."""
+    rows = (await conn.execute(text("PRAGMA table_info(chat_sessions)"))).fetchall()
+    has_col = any(row[1] == "is_temporary" for row in rows)
+    if not has_col:
+        logger.info("Adding is_temporary column to chat_sessions...")
+        await conn.execute(text(
+            "ALTER TABLE chat_sessions ADD COLUMN is_temporary BOOLEAN DEFAULT 0 NOT NULL"
+        ))
+
+
+async def _cleanup_temp_sessions(conn) -> None:
+    """Delete orphaned temporary sessions on startup."""
+    result = await conn.execute(text(
+        "DELETE FROM chat_messages WHERE session_id IN "
+        "(SELECT id FROM chat_sessions WHERE is_temporary = 1)"
+    ))
+    result2 = await conn.execute(text(
+        "DELETE FROM chat_sessions WHERE is_temporary = 1"
+    ))
+    if result2.rowcount:
+        logger.info("Cleaned up %d orphaned temporary session(s).", result2.rowcount)
+
+
 async def init_db() -> None:
     from app.models import Base  # noqa: F811
 
@@ -110,3 +134,5 @@ async def init_db() -> None:
         logger.info("sqlite-vec loaded successfully (version %s)", vec_version)
 
         await _migrate_embeddings_to_vec0(conn)
+        await _migrate_add_is_temporary(conn)
+        await _cleanup_temp_sessions(conn)

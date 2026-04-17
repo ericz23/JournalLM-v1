@@ -151,6 +151,7 @@ export type NarrativeData = {
 export type ChatSessionSummary = {
   id: string;
   title: string | null;
+  is_temporary: boolean;
   message_count: number;
   created_at: string;
   updated_at: string;
@@ -196,11 +197,12 @@ export async function listChatSessions(signal?: AbortSignal): Promise<ChatSessio
 
 export async function createChatSession(
   title: string | null = null,
+  is_temporary: boolean = false,
   signal?: AbortSignal
 ): Promise<ChatSessionSummary> {
   return requestJson<ChatSessionSummary>("/api/chat/sessions", {
     method: "POST",
-    body: { title },
+    body: { title, is_temporary },
     signal,
   });
 }
@@ -210,6 +212,13 @@ export async function getChatSession(
   signal?: AbortSignal
 ): Promise<ChatSessionDetail> {
   return requestJson<ChatSessionDetail>(`/api/chat/sessions/${id}`, { signal });
+}
+
+export async function saveTempSession(id: string, signal?: AbortSignal): Promise<ChatSessionSummary> {
+  return requestJson<ChatSessionSummary>(`/api/chat/sessions/${id}/save`, {
+    method: "PATCH",
+    signal,
+  });
 }
 
 export async function deleteChatSession(id: string, signal?: AbortSignal): Promise<void> {

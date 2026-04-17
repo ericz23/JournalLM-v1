@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -16,6 +16,7 @@ class ChatSession(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_new_uuid)
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="session",

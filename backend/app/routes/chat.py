@@ -24,11 +24,13 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 class SessionCreate(BaseModel):
     title: str | None = None
+    is_temporary: bool = False
 
 
 class SessionSummary(BaseModel):
     id: str
     title: str | None
+    is_temporary: bool
     message_count: int
     created_at: str
     updated_at: str
@@ -67,13 +69,14 @@ async def create_session(
     body: SessionCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    session = ChatSession(title=body.title)
+    session = ChatSession(title=body.title, is_temporary=body.is_temporary)
     db.add(session)
     await db.commit()
     await db.refresh(session)
     return SessionSummary(
         id=session.id,
         title=session.title,
+        is_temporary=session.is_temporary,
         message_count=0,
         created_at=session.created_at.isoformat(),
         updated_at=session.updated_at.isoformat(),
@@ -87,6 +90,7 @@ async def list_sessions(db: AsyncSession = Depends(get_db)):
             ChatSession,
             func.count(ChatMessage.id).label("msg_count"),
         )
+        .where(ChatSession.is_temporary == False)  # noqa: E712
         .outerjoin(ChatMessage)
         .group_by(ChatSession.id)
         .order_by(ChatSession.updated_at.desc())
@@ -96,6 +100,7 @@ async def list_sessions(db: AsyncSession = Depends(get_db)):
         SessionSummary(
             id=row[0].id,
             title=row[0].title,
+            is_temporary=row[0].is_temporary,
             message_count=row[1],
             created_at=row[0].created_at.isoformat(),
             updated_at=row[0].updated_at.isoformat(),
@@ -146,6 +151,34 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(session)
     await db.commit()
     return {"status": "deleted"}
+
+
+@router.patch("/sessions/{session_id}/save", response_model=SessionSummary)
+async def save_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Convert a temporary session into a permanent one."""
+    session = (await db.execute(
+        select(ChatSession).where(ChatSession.id == session_id)
+    )).scalar_one_or_none()
+
+    if session is None:
+        raise HTTPException(404, "Session not found")
+
+    session.is_temporary = False
+    await db.commit()
+    await db.refresh(session)
+
+    msg_count = (await db.execute(
+        select(func.count(ChatMessage.id)).where(ChatMessage.session_id == session_id)
+    )).scalar() or 0
+
+    return SessionSummary(
+        id=session.id,
+        title=session.title,
+        is_temporary=session.is_temporary,
+        message_count=msg_count,
+        created_at=session.created_at.isoformat(),
+        updated_at=session.updated_at.isoformat(),
+    )
 
 
 # ── Message endpoint (SSE streaming) ─────────────────────────────────

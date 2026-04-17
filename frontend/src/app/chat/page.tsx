@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ChatInput from "@/components/chat/ChatInput";
+import ConfirmDialog from "@/components/chat/ConfirmDialog";
 import ContextPanel, { type ContextItem } from "@/components/chat/ContextPanel";
 import MessageBubble from "@/components/chat/MessageBubble";
 import SessionSidebar, { type Session } from "@/components/chat/SessionSidebar";
@@ -11,6 +12,7 @@ import {
   getChatSession,
   listChatSessions,
   postChatMessageStream,
+  saveTempSession as apiSaveTempSession,
 } from "@/lib/api";
 import { getModeById } from "@/lib/chat-modes";
 
@@ -30,7 +32,14 @@ export default function ChatPage() {
   const [contextCollapsed, setContextCollapsed] = useState(true);
   const [streaming, setStreaming] = useState(false);
   const [mode, setMode] = useState("default");
+  const [tempSessionId, setTempSessionId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const tempIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    tempIdRef.current = tempSessionId;
+  }, [tempSessionId]);
 
   useEffect(() => setMounted(true), []);
 
@@ -56,47 +65,133 @@ export default function ChatPage() {
     loadSessions();
   }, [loadSessions]);
 
-  const loadSession = useCallback(async (id: string) => {
-    try {
-      const data = await getChatSession(id);
-      setActiveId(id);
-      const msgs: Message[] = data.messages.map((m) => ({
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        context: m.retrieved_context as ContextItem[] | undefined,
-      }));
-      setMessages(msgs);
-
-      const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
-      setContextItems(lastAssistant?.context ?? []);
-    } catch { /* ignore */ }
+  const clearChat = useCallback(() => {
+    setActiveId(null);
+    setMessages([]);
+    setContextItems([]);
   }, []);
 
-  const createSession = useCallback(async () => {
+  const discardTempSession = useCallback(async () => {
+    const tid = tempIdRef.current;
+    if (!tid) return;
+    setTempSessionId(null);
     try {
-      const session = await createChatSession();
-      setActiveId(session.id);
-      setMessages([]);
-      setContextItems([]);
+      await deleteChatSession(tid);
+    } catch { /* best effort */ }
+  }, []);
+
+  // Guard: if a temp session with messages exists, show confirm before proceeding
+  const withTempGuard = useCallback(
+    (action: () => void) => {
+      if (tempSessionId && activeId === tempSessionId && messages.length > 0) {
+        setPendingAction(() => action);
+      } else {
+        if (tempSessionId && activeId !== tempSessionId) {
+          discardTempSession();
+        }
+        action();
+      }
+    },
+    [tempSessionId, activeId, messages.length, discardTempSession]
+  );
+
+  const handleConfirm = useCallback(async () => {
+    const action = pendingAction;
+    setPendingAction(null);
+    await discardTempSession();
+    if (action) action();
+  }, [pendingAction, discardTempSession]);
+
+  const handleCancelConfirm = useCallback(() => {
+    setPendingAction(null);
+  }, []);
+
+  const loadSession = useCallback(
+    (id: string) => {
+      if (id === tempSessionId) {
+        setActiveId(id);
+        return;
+      }
+      withTempGuard(async () => {
+        try {
+          const data = await getChatSession(id);
+          setActiveId(id);
+          const msgs: Message[] = data.messages.map((m) => ({
+            id: m.id,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            context: m.retrieved_context as ContextItem[] | undefined,
+          }));
+          setMessages(msgs);
+
+          const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+          setContextItems(lastAssistant?.context ?? []);
+        } catch { /* ignore */ }
+      });
+    },
+    [withTempGuard, tempSessionId]
+  );
+
+  const createSession = useCallback(() => {
+    withTempGuard(async () => {
+      try {
+        const session = await createChatSession();
+        setActiveId(session.id);
+        setMessages([]);
+        setContextItems([]);
+        await loadSessions();
+      } catch { /* ignore */ }
+    });
+  }, [withTempGuard, loadSessions]);
+
+  const createTempSession = useCallback(() => {
+    withTempGuard(async () => {
+      try {
+        const session = await createChatSession(null, true);
+        setTempSessionId(session.id);
+        setActiveId(session.id);
+        setMessages([]);
+        setContextItems([]);
+      } catch { /* ignore */ }
+    });
+  }, [withTempGuard]);
+
+  const saveTempChat = useCallback(async () => {
+    if (!tempSessionId) return;
+    try {
+      await apiSaveTempSession(tempSessionId);
+      setTempSessionId(null);
       await loadSessions();
     } catch { /* ignore */ }
-  }, [loadSessions]);
+  }, [tempSessionId, loadSessions]);
 
   const deleteSession = useCallback(
     async (id: string) => {
       try {
         await deleteChatSession(id);
+        if (id === tempSessionId) {
+          setTempSessionId(null);
+        }
         if (activeId === id) {
-          setActiveId(null);
-          setMessages([]);
-          setContextItems([]);
+          clearChat();
         }
         await loadSessions();
       } catch { /* ignore */ }
     },
-    [activeId, loadSessions]
+    [activeId, tempSessionId, loadSessions, clearChat]
   );
+
+  // Cleanup temp session on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const tid = tempIdRef.current;
+      if (tid) {
+        navigator.sendBeacon(`/api/chat/sessions/${tid}`, "");
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   // ── Send message (SSE) ────────────────────────────────────────
 
@@ -200,7 +295,9 @@ export default function ChatPage() {
         });
       } finally {
         setStreaming(false);
-        await loadSessions();
+        if (!tempIdRef.current || activeId !== tempIdRef.current) {
+          await loadSessions();
+        }
       }
     },
     [activeId, loadSessions, mode]
@@ -222,8 +319,11 @@ export default function ChatPage() {
       <SessionSidebar
         sessions={sessions}
         activeId={activeId}
+        tempSessionId={tempSessionId}
         onSelect={loadSession}
         onNew={createSession}
+        onNewTemp={createTempSession}
+        onSaveTemp={saveTempChat}
         onDelete={deleteSession}
       />
 
@@ -313,6 +413,15 @@ export default function ChatPage() {
         items={contextItems}
         collapsed={contextCollapsed}
         onToggle={() => setContextCollapsed(!contextCollapsed)}
+      />
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title="Discard temporary chat?"
+        message="Your temporary chat will be lost. This action cannot be undone."
+        confirmLabel="Discard"
+        onConfirm={handleConfirm}
+        onCancel={handleCancelConfirm}
       />
     </div>
   );
