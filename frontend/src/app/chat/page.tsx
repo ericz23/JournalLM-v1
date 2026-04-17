@@ -12,6 +12,7 @@ import {
   listChatSessions,
   postChatMessageStream,
 } from "@/lib/api";
+import { getModeById } from "@/lib/chat-modes";
 
 type Message = {
   id?: number;
@@ -26,8 +27,9 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [contextItems, setContextItems] = useState<ContextItem[]>([]);
-  const [contextCollapsed, setContextCollapsed] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(true);
   const [streaming, setStreaming] = useState(false);
+  const [mode, setMode] = useState("default");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setMounted(true), []);
@@ -121,7 +123,7 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, assistantMsg]);
 
       try {
-        const reader = await postChatMessageStream(sessionId, content);
+        const reader = await postChatMessageStream(sessionId, content, mode);
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -201,7 +203,7 @@ export default function ChatPage() {
         await loadSessions();
       }
     },
-    [activeId, loadSessions]
+    [activeId, loadSessions, mode]
   );
 
   // ── Render ────────────────────────────────────────────────────
@@ -210,8 +212,13 @@ export default function ChatPage() {
     return <div className="flex flex-1" />;
   }
 
+  const activeMode = getModeById(mode);
+
   return (
-    <div className="flex flex-1 overflow-hidden bg-[var(--color-slate-bg)]">
+    <div
+      className="flex flex-1 overflow-hidden bg-[var(--color-slate-bg)]"
+      style={{ "--color-slate-accent": activeMode.accentColor } as React.CSSProperties}
+    >
       <SessionSidebar
         sessions={sessions}
         activeId={activeId}
@@ -229,46 +236,49 @@ export default function ChatPage() {
             <div className="flex h-full flex-col items-center justify-center">
               <div className="relative text-center">
                 {/* Radial glow */}
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-[var(--color-slate-accent)]/[0.06] blur-3xl" />
+                <div
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full blur-3xl transition-colors"
+                  style={{ backgroundColor: `${activeMode.accentColor}10` }}
+                />
 
-                <div className="relative mb-2 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--color-slate-accent)]/20 to-[var(--color-slate-accent)]/5 ring-1 ring-[var(--color-slate-accent)]/20">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-slate-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    <path d="M8 10h.01" />
-                    <path d="M12 10h.01" />
-                    <path d="M16 10h.01" />
-                  </svg>
+                <div
+                  className="relative mb-2 inline-flex h-14 w-14 items-center justify-center rounded-2xl ring-1 transition-colors"
+                  style={{
+                    background: `linear-gradient(to bottom right, ${activeMode.accentColor}33, ${activeMode.accentColor}0D)`,
+                    ringColor: `${activeMode.accentColor}33`,
+                  }}
+                >
+                  <span className="text-2xl leading-none">{activeMode.icon}</span>
                 </div>
 
                 <p className="relative text-2xl font-bold tracking-tight">
-                  Journal<span className="text-[var(--color-slate-accent)]">LM</span>
-                  <span className="ml-1.5 text-xs font-normal text-[var(--color-slate-muted)] align-middle">Assistant</span>
+                  Journal<span style={{ color: activeMode.accentColor }}>LM</span>
+                  <span className="ml-1.5 text-xs font-normal text-[var(--color-slate-muted)] align-middle">{activeMode.label}</span>
                 </p>
                 <p className="relative mt-2 text-sm text-[var(--color-slate-text-dim)] max-w-md mx-auto leading-relaxed">
-                  Ask me anything about your journal entries. I can recall events,
-                  summarize weeks, find restaurants, and surface reflections &mdash;
-                  all grounded in your actual data.
+                  {activeMode.description}
                 </p>
                 <div className="relative mt-8 grid grid-cols-2 gap-2.5 max-w-lg mx-auto">
-                  {[
-                    { q: "What did I do on October 3rd?", icon: "\uD83D\uDCC5", label: "Recall a day" },
-                    { q: "Which restaurants have I visited?", icon: "\uD83C\uDF7D\uFE0F", label: "Find restaurants" },
-                    { q: "Summarize my week of Oct 1-7", icon: "\uD83D\uDCCA", label: "Weekly summary" },
-                    { q: "How was I feeling about work?", icon: "\uD83D\uDCAD", label: "Explore feelings" },
-                  ].map(({ q, icon, label }) => (
+                  {activeMode.starterPrompts.map(({ query, icon, label }) => (
                     <button
-                      key={q}
-                      onClick={() => sendMessage(q)}
+                      key={query}
+                      onClick={() => sendMessage(query)}
                       disabled={streaming}
-                      className="group flex items-start gap-3 rounded-xl border border-[var(--color-slate-border)] bg-[var(--color-slate-surface)] p-3.5 text-left transition-all hover:border-[var(--color-slate-accent)]/40 hover:bg-[var(--color-slate-accent)]/[0.04] hover:shadow-[0_0_20px_-4px] hover:shadow-[var(--color-slate-accent)]/10 disabled:opacity-50"
+                      className="group flex items-start gap-3 rounded-xl border border-[var(--color-slate-border)] bg-[var(--color-slate-surface)] p-3.5 text-left transition-all hover:bg-opacity-[0.04] hover:shadow-[0_0_20px_-4px] disabled:opacity-50"
+                      style={{
+                        ["--hover-accent" as string]: activeMode.accentColor,
+                      }}
                     >
                       <span className="mt-0.5 text-lg leading-none">{icon}</span>
                       <div className="min-w-0 flex-1">
-                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-slate-accent)] mb-0.5">
+                        <span
+                          className="block text-[10px] font-semibold uppercase tracking-wider mb-0.5"
+                          style={{ color: activeMode.accentColor }}
+                        >
                           {label}
                         </span>
                         <span className="block text-xs text-[var(--color-slate-text-dim)] group-hover:text-[var(--color-slate-text)] transition-colors leading-relaxed">
-                          {q}
+                          {query}
                         </span>
                       </div>
                     </button>
@@ -284,13 +294,19 @@ export default function ChatPage() {
                   role={msg.role}
                   content={msg.content}
                   isStreaming={streaming && i === messages.length - 1 && msg.role === "assistant"}
+                  accentColor={activeMode.accentColor}
                 />
               ))}
             </div>
           )}
         </div>
 
-        <ChatInput onSend={sendMessage} disabled={streaming} />
+        <ChatInput
+          onSend={sendMessage}
+          disabled={streaming}
+          mode={mode}
+          onModeChange={setMode}
+        />
       </div>
 
       <ContextPanel

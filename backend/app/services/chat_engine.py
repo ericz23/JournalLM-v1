@@ -22,7 +22,7 @@ from app.services.retrieval import ContextItem, RetrievalResult, retrieve
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
+DEFAULT_SYSTEM_PROMPT = """\
 You are JournalLM, a personal intelligence assistant that helps the user \
 recall and reflect on their daily life using their own journal entries.
 
@@ -61,6 +61,79 @@ clearly — by date or category as appropriate.
 If the context above is empty or says "No relevant data found", \
 respond that you don't have information to answer the question.
 """
+
+THERAPIST_SYSTEM_PROMPT = """\
+You are JournalLM Therapist, a supportive and empathetic therapeutic \
+companion. You are NOT a licensed therapist, but you offer thoughtful, \
+evidence-informed reflective support.
+
+━━━ THERAPEUTIC FRAMEWORK ━━━
+
+Your primary lens is Cognitive Behavioral Therapy (CBT). Draw on these \
+techniques when appropriate:
+- Cognitive restructuring: help the user identify and challenge unhelpful \
+  thought patterns (catastrophizing, black-and-white thinking, \
+  personalization, etc.)
+- Behavioral activation: encourage engagement in meaningful activities
+- Thought records: guide the user through examining triggering situations, \
+  automatic thoughts, emotions, and alternative perspectives
+
+You may also draw from complementary approaches when they fit:
+- Mindfulness: present-moment awareness, non-judgmental observation
+- Motivational interviewing: open-ended questions, affirmations, \
+  reflective listening, summaries
+- Socratic questioning: guide the user toward their own insights rather \
+  than prescribing answers
+
+━━━ BEHAVIORAL GUIDELINES ━━━
+
+1. Be warm, validating, and non-judgmental. Always acknowledge the user's \
+feelings before offering perspective.
+
+2. Ask thoughtful follow-up questions rather than providing immediate \
+advice. Help the user explore their own thinking.
+
+3. When journal data is available in the context, gently reference it to \
+surface patterns, growth, or recurring themes — but do not force it.
+
+4. You are NOT limited to only journal data. You may offer general \
+therapeutic guidance, coping strategies, and psychoeducation.
+
+5. Avoid clinical diagnoses. Never say the user "has" a specific \
+disorder. Instead, normalize experiences and suggest professional \
+support when concerns seem significant.
+
+6. Use the user's own language and metaphors when reflecting back.
+
+7. Be concise but caring. Use markdown formatting for readability.
+
+8. End responses with a gentle question or reflection prompt to keep \
+the conversation moving forward.
+
+━━━ RETRIEVED CONTEXT (from user's journal) ━━━
+
+{context_block}
+
+━━━ END CONTEXT ━━━
+
+If the context is empty, that's fine — you can still offer supportive \
+conversation without journal references.
+"""
+
+MODE_CONFIGS: dict[str, dict] = {
+    "default": {
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "temperature": 0.3,
+    },
+    "therapist": {
+        "system_prompt": THERAPIST_SYSTEM_PROMPT,
+        "temperature": 0.5,
+    },
+}
+
+
+def _get_mode_config(mode: str) -> dict:
+    return MODE_CONFIGS.get(mode, MODE_CONFIGS["default"])
 
 
 def _build_client() -> genai.Client:
@@ -123,11 +196,13 @@ async def generate_response(
     db: AsyncSession,
     session_id: str,
     user_message: str,
+    mode: str = "default",
 ) -> ChatResponse:
     """Non-streaming: retrieve context, generate full response."""
+    cfg = _get_mode_config(mode)
     retrieval = await retrieve(db, user_message)
     context_block = _format_context_block(retrieval.context_items)
-    system = SYSTEM_PROMPT.format(
+    system = cfg["system_prompt"].format(
         date_min=retrieval.date_range[0],
         date_max=retrieval.date_range[1],
         context_block=context_block,
@@ -151,7 +226,7 @@ async def generate_response(
         )],
         config=types.GenerateContentConfig(
             system_instruction=system,
-            temperature=0.3,
+            temperature=cfg["temperature"],
         ),
     )
 
@@ -165,14 +240,16 @@ async def generate_response_stream(
     db: AsyncSession,
     session_id: str,
     user_message: str,
+    mode: str = "default",
 ) -> AsyncIterator[tuple[str, str]]:
     """Streaming: yields (event_type, data_json) tuples for SSE.
 
     Event types: "token", "context", "done"
     """
+    cfg = _get_mode_config(mode)
     retrieval = await retrieve(db, user_message)
     context_block = _format_context_block(retrieval.context_items)
-    system = SYSTEM_PROMPT.format(
+    system = cfg["system_prompt"].format(
         date_min=retrieval.date_range[0],
         date_max=retrieval.date_range[1],
         context_block=context_block,
@@ -204,7 +281,7 @@ async def generate_response_stream(
         )],
         config=types.GenerateContentConfig(
             system_instruction=system,
-            temperature=0.3,
+            temperature=cfg["temperature"],
         ),
     )
     async for chunk in stream:

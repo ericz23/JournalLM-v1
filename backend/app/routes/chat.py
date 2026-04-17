@@ -50,6 +50,7 @@ class SessionDetail(BaseModel):
 
 class SendMessage(BaseModel):
     content: str
+    mode: str = "default"
 
 
 class EmbedResponse(BaseModel):
@@ -166,7 +167,7 @@ async def send_message(
 
     async def event_stream():
         async for event_type, data in generate_response_stream(
-            db, session_id, body.content,
+            db, session_id, body.content, mode=body.mode,
         ):
             if await request.is_disconnected():
                 break
