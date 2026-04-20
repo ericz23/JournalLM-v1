@@ -18,6 +18,8 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [narrative, setNarrative] = useState<NarrativeData | null>(null);
+  const [refDate, setRefDate] = useState<string | null>(null);
+  const [latestRefDate, setLatestRefDate] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [loadingNarrative, setLoadingNarrative] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +29,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!mounted) return;
     const controller = new AbortController();
+    setLoadingData(true);
+    setLoadingNarrative(true);
+    setError(null);
 
     async function fetchDashboard() {
       try {
-        setData(await getDashboardData(controller.signal));
+        const dashboard = await getDashboardData(controller.signal, refDate ?? undefined);
+        setData(dashboard);
+        if (!refDate && dashboard.date_range?.end) {
+          setLatestRefDate(dashboard.date_range.end);
+        }
       } catch (e) {
         if (controller.signal.aborted) return;
         if (e instanceof ApiError) {
@@ -45,7 +54,7 @@ export default function Dashboard() {
 
     async function fetchNarrative() {
       try {
-        setNarrative(await getDashboardNarrative(controller.signal));
+        setNarrative(await getDashboardNarrative(controller.signal, refDate ?? undefined));
       } catch {
         // non-critical
       } finally {
@@ -57,7 +66,7 @@ export default function Dashboard() {
     fetchNarrative();
 
     return () => controller.abort();
-  }, [mounted]);
+  }, [mounted, refDate]);
 
   if (!mounted) {
     return <div className="flex-1" />;
@@ -66,16 +75,16 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="rounded-xl border border-[var(--color-slate-accent-rose)]/20 bg-[var(--color-slate-surface)] p-8 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-slate-accent-rose)]/15">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-slate-accent-rose)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="rounded-xl border border-[var(--color-brand-accent-rose)]/20 bg-[var(--color-brand-surface)] p-8 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-brand-accent-rose)]/15">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-accent-rose)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-[var(--color-slate-accent-rose)]">{error}</p>
-          <p className="mt-2 text-xs text-[var(--color-slate-text-dim)]">
+          <p className="text-sm font-medium text-[var(--color-brand-accent-rose)]">{error}</p>
+          <p className="mt-2 text-xs text-[var(--color-brand-text-dim)]">
             Make sure the backend is running on {API_BASE_URL}
           </p>
         </div>
@@ -88,6 +97,8 @@ export default function Dashboard() {
     ...data.reflections.map((r) => r.date),
     ...data.learning.map((l) => l.date),
   ]).size : 0;
+  const canGoPrev = !!data?.date_range && !loadingData;
+  const canGoNext = !!data?.date_range && !!latestRefDate && data.date_range.end < latestRefDate && !loadingData;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -95,14 +106,47 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="font-heading text-2xl tracking-tight">
               Command Center
             </h1>
-            {data?.date_range && (
-              <p className="mt-1.5 text-xs font-mono text-[var(--color-slate-muted)]">
-                {formatRange(data.date_range.start, data.date_range.end)}
-              </p>
-            )}
+            <div className="mt-1.5 flex items-center gap-2">
+              {data?.date_range && (
+                <p className="text-xs font-mono text-[var(--color-brand-muted)]">
+                  {formatRange(data.date_range.start, data.date_range.end)}
+                </p>
+              )}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Previous week"
+                  disabled={!canGoPrev}
+                  onClick={() => {
+                    if (!data?.date_range?.end) return;
+                    setRefDate(shiftDate(data.date_range.end, -7));
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-[var(--color-brand-border)] text-[var(--color-brand-text-dim)] transition-colors hover:text-[var(--color-brand-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next week"
+                  disabled={!canGoNext}
+                  onClick={() => {
+                    if (!data?.date_range?.end || !latestRefDate) return;
+                    const next = shiftDate(data.date_range.end, 7);
+                    setRefDate(next > latestRefDate ? latestRefDate : next);
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-[var(--color-brand-border)] text-[var(--color-brand-text-dim)] transition-colors hover:text-[var(--color-brand-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Quick stats */}
@@ -111,12 +155,12 @@ export default function Dashboard() {
               <StatPill
                 value={uniqueDates}
                 label="days"
-                color="var(--color-slate-accent)"
+                color="var(--color-brand-accent)"
               />
               <StatPill
                 value={data.dining.length}
                 label="meals"
-                color="var(--color-slate-accent-amber)"
+                color="var(--color-brand-accent-amber)"
               />
               <StatPill
                 value={data.reflections.length}
@@ -126,7 +170,7 @@ export default function Dashboard() {
               <StatPill
                 value={data.learning.length}
                 label="sessions"
-                color="var(--color-slate-accent-green)"
+                color="var(--color-brand-accent-green)"
               />
             </div>
           )}
@@ -160,7 +204,7 @@ function StatPill({ value, label, color }: { value: number; label: string; color
       style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}
     >
       <span className="text-sm font-bold" style={{ color }}>{value}</span>
-      <span className="text-[10px] font-mono text-[var(--color-slate-text-dim)]">{label}</span>
+      <span className="text-[10px] font-mono text-[var(--color-brand-text-dim)]">{label}</span>
     </div>
   );
 }
@@ -170,4 +214,10 @@ function formatRange(start: string, end: string): string {
   const e = new Date(end + "T00:00:00");
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
   return `${s.toLocaleDateString("en-US", opts)} \u2014 ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`;
+}
+
+function shiftDate(isoDate: string, deltaDays: number): string {
+  const d = new Date(isoDate + "T00:00:00");
+  d.setDate(d.getDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
 }

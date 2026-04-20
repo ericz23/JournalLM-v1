@@ -30,7 +30,7 @@ export default function ModeSelector({ mode, onModeChange }: Props) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:bg-[var(--color-slate-surface)]"
+        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:bg-[var(--color-brand-surface)]"
         style={{ color: active.accentColor }}
       >
         <span className="text-sm leading-none">{active.icon}</span>
@@ -51,7 +51,7 @@ export default function ModeSelector({ mode, onModeChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 rounded-xl border border-[var(--color-slate-border)] bg-[var(--color-slate-surface)] p-1.5 shadow-xl shadow-black/30 z-50">
+        <div className="absolute bottom-full left-0 mb-1 w-56 rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-1.5 shadow-xl shadow-black/30 z-50">
           {CHAT_MODES.map((m) => {
             const isActive = m.id === mode;
             return (
@@ -64,19 +64,19 @@ export default function ModeSelector({ mode, onModeChange }: Props) {
                 }}
                 className={`flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                   isActive
-                    ? "bg-[var(--color-slate-bg)]"
-                    : "hover:bg-[var(--color-slate-bg)]/60"
+                    ? "bg-[var(--color-brand-bg)]"
+                    : "hover:bg-[var(--color-brand-bg)]/60"
                 }`}
               >
                 <span className="mt-0.5 text-base leading-none">{m.icon}</span>
                 <div className="min-w-0 flex-1">
                   <span
                     className="block text-sm font-semibold"
-                    style={{ color: isActive ? m.accentColor : "var(--color-slate-text)" }}
+                    style={{ color: isActive ? m.accentColor : "var(--color-brand-text)" }}
                   >
                     {m.label}
                   </span>
-                  <span className="block text-[11px] text-[var(--color-slate-text-dim)] leading-snug">
+                  <span className="block text-[11px] text-[var(--color-brand-text-dim)] leading-snug">
                     {m.description}
                   </span>
                 </div>

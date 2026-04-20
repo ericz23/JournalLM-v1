@@ -19,7 +19,7 @@ export const CHAT_MODES: ChatMode[] = [
     id: "default",
     label: "Assistant",
     icon: "✦",
-    accentColor: "#38BDF8",
+    accentColor: "#F0B429",
     description: "Journal-grounded Q&A",
     starterPrompts: [
       { query: "What did I do on October 3rd?", icon: "📅", label: "Recall a day" },
@@ -32,7 +32,7 @@ export const CHAT_MODES: ChatMode[] = [
     id: "therapist",
     label: "Therapist",
     icon: "🧠",
-    accentColor: "#A78BFA",
+    accentColor: "#C084FC",
     description: "CBT-informed reflective support",
     starterPrompts: [
       { query: "I've been feeling stressed about work lately", icon: "😮‍💨", label: "Process stress" },

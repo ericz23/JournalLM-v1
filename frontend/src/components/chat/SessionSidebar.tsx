@@ -45,16 +45,16 @@ export default function SessionSidebar({
   onDelete,
 }: Props) {
   return (
-    <div className="flex h-full w-[240px] flex-col border-r border-[var(--color-slate-border)] bg-[var(--color-slate-bg)]/80">
+    <div className="flex h-full w-[240px] flex-col border-r border-[var(--color-brand-border)] bg-[var(--color-brand-bg)]/80">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-slate-border)] px-3 py-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate-text-dim)]">
-          Chats
+      <div className="flex items-center justify-between border-b border-[var(--color-brand-border)] px-3 py-3">
+        <h2 className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-brand-muted)]">
+          Sessions
         </h2>
         <div className="flex items-center gap-1.5">
           <button
             onClick={onNewTemp}
-            className="flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--color-slate-border)] text-[var(--color-slate-muted)] hover:text-[var(--color-slate-text)] hover:border-[var(--color-slate-text-dim)] transition-all"
+            className="flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--color-brand-border)] text-[var(--color-brand-muted)] hover:text-[var(--color-brand-text)] hover:border-[var(--color-brand-text-dim)] transition-all"
             title="Temporary chat"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -64,7 +64,7 @@ export default function SessionSidebar({
           </button>
           <button
             onClick={onNew}
-            className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-slate-accent)] text-[var(--color-slate-bg)] text-sm font-bold hover:opacity-90 hover:shadow-[0_0_8px_-2px] hover:shadow-[var(--color-slate-accent)]/40 transition-all"
+            className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-accent)] text-[var(--color-brand-bg)] text-sm font-bold hover:opacity-90 hover:shadow-[0_0_8px_-2px] hover:shadow-[var(--color-brand-accent)]/40 transition-all"
             title="New chat"
           >
             +
@@ -79,17 +79,17 @@ export default function SessionSidebar({
           <div
             onClick={() => onSelect(tempSessionId)}
             className={cn(
-              "group mx-1.5 my-0.5 flex items-start justify-between rounded-lg px-2.5 py-2 cursor-pointer transition-all",
+              "group mx-1.5 my-0.5 flex items-start justify-between rounded-md px-2.5 py-2 cursor-pointer transition-all",
               tempSessionId === activeId
-                ? "bg-[var(--color-slate-surface)] shadow-[inset_0_0_0_1px] shadow-[var(--color-slate-muted)]/20"
-                : "hover:bg-[var(--color-slate-surface)]/50"
+                ? "bg-[var(--color-brand-surface)] border-l-2 border-[var(--color-brand-muted)]"
+                : "border-l-2 border-transparent hover:bg-[var(--color-brand-surface)]/50"
             )}
           >
             <div className="min-w-0 flex-1 opacity-60">
-              <p className="truncate text-sm italic text-[var(--color-slate-muted)]">
+              <p className="truncate text-sm italic text-[var(--color-brand-muted)]">
                 Temporary Chat
               </p>
-              <p className="mt-0.5 text-[10px] text-[var(--color-slate-muted)]">
+              <p className="mt-0.5 text-[10px] text-[var(--color-brand-muted)]">
                 Not saved
               </p>
             </div>
@@ -99,7 +99,7 @@ export default function SessionSidebar({
                   e.stopPropagation();
                   onSaveTemp();
                 }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-slate-muted)] hover:text-[var(--color-slate-accent-green)] transition-all"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-brand-muted)] hover:text-[var(--color-brand-accent-green)] transition-all"
                 title="Save this chat"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -113,7 +113,7 @@ export default function SessionSidebar({
                   e.stopPropagation();
                   onDelete(tempSessionId);
                 }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-slate-muted)] hover:text-[var(--color-slate-accent-rose)] transition-all"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-brand-muted)] hover:text-[var(--color-brand-accent-rose)] transition-all"
                 title="Discard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -127,7 +127,7 @@ export default function SessionSidebar({
 
         {/* Saved sessions */}
         {sessions.length === 0 && !tempSessionId ? (
-          <p className="px-3 py-4 text-xs text-[var(--color-slate-muted)] italic">
+          <p className="px-3 py-4 text-xs text-[var(--color-brand-muted)] italic">
             No conversations yet.
           </p>
         ) : (
@@ -136,17 +136,17 @@ export default function SessionSidebar({
               key={s.id}
               onClick={() => onSelect(s.id)}
               className={cn(
-                "group mx-1.5 my-0.5 flex items-start justify-between rounded-lg px-2.5 py-2 cursor-pointer transition-all",
+                "group mx-1.5 my-0.5 flex items-start justify-between rounded-md px-2.5 py-2 cursor-pointer transition-all",
                 s.id === activeId
-                  ? "bg-[var(--color-slate-surface)] shadow-[inset_0_0_0_1px] shadow-[var(--color-slate-accent)]/15"
-                  : "hover:bg-[var(--color-slate-surface)]/50"
+                  ? "bg-[var(--color-brand-accent)]/[0.08] border-l-2 border-[var(--color-brand-accent)]"
+                  : "border-l-2 border-transparent hover:bg-[var(--color-brand-surface)]/50"
               )}
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-[var(--color-slate-text)]">
+                <p className="truncate text-sm text-[var(--color-brand-text)]">
                   {s.title || "New chat"}
                 </p>
-                <p className="mt-0.5 text-[10px] text-[var(--color-slate-muted)]">
+                <p className="mt-0.5 text-[10px] text-[var(--color-brand-muted)]">
                   {s.message_count} msgs &middot; {formatRelative(s.updated_at)}
                 </p>
               </div>
@@ -155,7 +155,7 @@ export default function SessionSidebar({
                   e.stopPropagation();
                   onDelete(s.id);
                 }}
-                className="ml-1 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-slate-muted)] hover:text-[var(--color-slate-accent-rose)] transition-all"
+                className="ml-1 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-[var(--color-brand-muted)] hover:text-[var(--color-brand-accent-rose)] transition-all"
                 title="Delete"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -168,7 +168,7 @@ export default function SessionSidebar({
         )}
       </div>
 
-      <div className="border-t border-[var(--color-slate-border)] px-3 py-2" />
+      <div className="border-t border-[var(--color-brand-border)] px-3 py-2" />
     </div>
   );
 }

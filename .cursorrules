@@ -6,20 +6,49 @@ The system treats a user's journal as a high-resolution data source. By utilizin
 ---
 
 ## 2. Technical Stack
-* **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, Shadcn UI, Recharts.
+* **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, Shadcn UI.
 * **Backend:** FastAPI (Python), SQLAlchemy (ORM).
-* **Database:** SQLite + `sqlite-vss` (for local vector similarity search).
-* **AI Layer:** Ollama (Local) or OpenAI/Claude (Hosted) for "Shredding" and RAG.
-* **Ingestion:** Git-Ops (Polling private GitHub repo via REST API).
+* **Database:** SQLite + `sqlite-vec` (for local vector similarity search).
+* **AI Layer:** Google Gemini (structured extraction, embeddings, streaming chat).
+* **Ingestion:** Local directory scan (Obsidian-style markdown files).
 * **Integration:** Whoop API v2 (OAuth 2.0).
 
 ---
 
-## 5. UI/UX: "Slate Intelligence" Theme
-* **Palette:** Background `#0F172A`, Surface `#1E293B`, Borders `#334155`.
-* **Dashboard Widgets:**
-    1.  **Weekly Narrative:** AI-generated hero text.
-    2.  **Social Heatmap:** GitHub-style dots representing extracted `SOCIAL` events.
-    3.  **Whoop Trends:** Dual-axis chart showing Recovery % vs. Strain.
-    4.  **Dining Log:** List of restaurants with positive/neutral sentiment badges.
-* **Chatbot Interface:** Split-screen view. Left side: Chat thread. Right side: "Retrieved Context" panel showing the exact Obsidian snippet or SQLite row used.
+## 3. UI/UX: "Luminous Codex" Design System
+
+### Philosophy
+Editorial warmth with vivid, expressive color. The aesthetic leans into the *journal*
+identity — warm dark surfaces, a serif display font for headings, and a bright saffron
+accent that gives the interface energy without sacrificing readability.
+
+### Color Palette
+| Token                  | Hex       | Role                       |
+|------------------------|-----------|----------------------------|
+| `--background`         | `#13110E` | Page background            |
+| `--card`               | `#1D1A15` | Card / surface             |
+| `--popover`            | `#282420` | Elevated / popover         |
+| `--border`             | `#35302A` | Borders, dividers          |
+| `--foreground`         | `#F2EDE5` | Primary text               |
+| `--muted-foreground`   | `#B5AB9D` | Secondary / dim text       |
+| `--primary`            | `#F0B429` | Accent (saffron gold)      |
+| `--destructive`        | `#F87171` | Error / negative sentiment |
+| `--chart-1` … `--chart-6` | See globals.css | Data visualization     |
+
+### Brand Tokens (custom CSS vars, prefix `brand-`)
+`--color-brand-bg`, `--color-brand-surface`, `--color-brand-border`,
+`--color-brand-muted`, `--color-brand-text`, `--color-brand-text-dim`,
+`--color-brand-accent`, `--color-brand-accent-green`, `--color-brand-accent-amber`,
+`--color-brand-accent-rose`.
+
+### Typography
+* **Headings:** Instrument Serif (Google Fonts) — editorial, modern serif.
+* **Body:** Inter (Google Fonts) — clean, readable sans-serif.
+* **Data / Mono:** IBM Plex Mono (Google Fonts) — warm monospace for dates, scores, code.
+
+### Component Style
+* **Cards:** Subtle warm shadow + 1px border. `border-radius: 10px`.
+* **Sidebar:** Active item uses saffron left-border + faint accent background wash.
+* **Buttons:** Rounded (10px). Primary = saffron fill, dark text. Ghost = accent text on hover.
+* **RAG Source Inspector:** Marginalia style — indented blocks with accent left rule.
+* **Density:** Generous — content breathes.

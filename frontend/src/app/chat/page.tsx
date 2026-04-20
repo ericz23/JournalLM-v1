@@ -313,8 +313,8 @@ export default function ChatPage() {
 
   return (
     <div
-      className="flex flex-1 overflow-hidden bg-[var(--color-slate-bg)]"
-      style={{ "--color-slate-accent": activeMode.accentColor } as React.CSSProperties}
+      className="flex flex-1 overflow-hidden bg-[var(--color-brand-bg)]"
+      style={{ "--color-brand-accent": activeMode.accentColor } as React.CSSProperties}
     >
       <SessionSidebar
         sessions={sessions}
@@ -345,17 +345,18 @@ export default function ChatPage() {
                   className="relative mb-2 inline-flex h-14 w-14 items-center justify-center rounded-2xl ring-1 transition-colors"
                   style={{
                     background: `linear-gradient(to bottom right, ${activeMode.accentColor}33, ${activeMode.accentColor}0D)`,
-                    ringColor: `${activeMode.accentColor}33`,
+                    outlineColor: `${activeMode.accentColor}33`,
+                    ["--tw-ring-color" as string]: `${activeMode.accentColor}33`,
                   }}
                 >
                   <span className="text-2xl leading-none">{activeMode.icon}</span>
                 </div>
 
-                <p className="relative text-2xl font-bold tracking-tight">
+                <p className="relative font-heading text-2xl tracking-tight">
                   Journal<span style={{ color: activeMode.accentColor }}>LM</span>
-                  <span className="ml-1.5 text-xs font-normal text-[var(--color-slate-muted)] align-middle">{activeMode.label}</span>
+                  <span className="ml-1.5 font-sans text-xs font-normal text-[var(--color-brand-muted)] align-middle">{activeMode.label}</span>
                 </p>
-                <p className="relative mt-2 text-sm text-[var(--color-slate-text-dim)] max-w-md mx-auto leading-relaxed">
+                <p className="relative mt-2 text-sm text-[var(--color-brand-text-dim)] max-w-md mx-auto leading-relaxed">
                   {activeMode.description}
                 </p>
                 <div className="relative mt-8 grid grid-cols-2 gap-2.5 max-w-lg mx-auto">
@@ -364,7 +365,7 @@ export default function ChatPage() {
                       key={query}
                       onClick={() => sendMessage(query)}
                       disabled={streaming}
-                      className="group flex items-start gap-3 rounded-xl border border-[var(--color-slate-border)] bg-[var(--color-slate-surface)] p-3.5 text-left transition-all hover:bg-opacity-[0.04] hover:shadow-[0_0_20px_-4px] disabled:opacity-50"
+                      className="group flex items-start gap-3 rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-3.5 text-left transition-all hover:bg-opacity-[0.04] hover:shadow-[0_0_20px_-4px] disabled:opacity-50"
                       style={{
                         ["--hover-accent" as string]: activeMode.accentColor,
                       }}
@@ -377,7 +378,7 @@ export default function ChatPage() {
                         >
                           {label}
                         </span>
-                        <span className="block text-xs text-[var(--color-slate-text-dim)] group-hover:text-[var(--color-slate-text)] transition-colors leading-relaxed">
+                        <span className="block text-xs text-[var(--color-brand-text-dim)] group-hover:text-[var(--color-brand-text)] transition-colors leading-relaxed">
                           {query}
                         </span>
                       </div>

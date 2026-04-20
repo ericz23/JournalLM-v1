@@ -43,12 +43,12 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
   };
 
   return (
-    <div className="border-t border-[var(--color-slate-border)] bg-[var(--color-slate-bg)] px-4 py-4">
+    <div className="border-t border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-4 py-4">
       <div
-        className={`relative flex flex-col rounded-xl border bg-[var(--color-slate-surface)] px-4 py-3 transition-all ${
+        className={`relative flex flex-col rounded-xl border bg-[var(--color-brand-surface)] px-4 py-3 transition-all ${
           focused
-            ? "border-[var(--color-slate-accent)]/40 shadow-[0_0_16px_-4px] shadow-[var(--color-slate-accent)]/20"
-            : "border-[var(--color-slate-border)]"
+            ? "border-[var(--color-brand-accent)]/40 shadow-[0_0_16px_-4px] shadow-[var(--color-brand-accent)]/20"
+            : "border-[var(--color-brand-border)]"
         }`}
       >
         <div className="flex items-end gap-3">
@@ -63,12 +63,12 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
             placeholder="Ask about your journal..."
             disabled={disabled}
             rows={1}
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--color-slate-text)] placeholder:text-[var(--color-slate-muted)] focus:outline-none disabled:opacity-50"
+            className="flex-1 resize-none bg-transparent text-sm text-[var(--color-brand-text)] placeholder:text-[var(--color-brand-muted)] focus:outline-none disabled:opacity-50"
           />
           <button
             onClick={handleSubmit}
             disabled={disabled || !value.trim()}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--color-slate-bg)] transition-all hover:opacity-90 hover:shadow-[0_0_12px_-2px] disabled:opacity-20 disabled:shadow-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--color-brand-bg)] transition-all hover:opacity-90 hover:shadow-[0_0_12px_-2px] disabled:opacity-20 disabled:shadow-none"
             style={{ backgroundColor: activeMode.accentColor }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -77,11 +77,11 @@ export default function ChatInput({ onSend, disabled, mode, onModeChange }: Prop
             </svg>
           </button>
         </div>
-        <div className="mt-2 border-t border-[var(--color-slate-border)]/50 pt-2">
+        <div className="mt-2 border-t border-[var(--color-brand-border)]/50 pt-2">
           <ModeSelector mode={mode} onModeChange={onModeChange} />
         </div>
       </div>
-      <p className="mt-2 text-center text-[10px] text-[var(--color-slate-muted)]">
+      <p className="mt-2 text-center text-[10px] text-[var(--color-brand-muted)]">
         {activeMode.disclaimer ?? "Grounded in your journal data."}{" "}
         Shift+Enter for new line.
       </p>

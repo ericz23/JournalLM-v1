@@ -16,10 +16,10 @@ type Props = {
 };
 
 const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-  life_event: { label: "EVENT", color: "var(--color-slate-accent)" },
-  reflection: { label: "REFLECTION", color: "var(--color-slate-accent-amber)" },
-  health_metric: { label: "HEALTH", color: "var(--color-slate-accent-green)" },
-  journal_chunk: { label: "JOURNAL", color: "var(--color-slate-accent-rose)" },
+  life_event: { label: "EVENT", color: "var(--color-brand-accent)" },
+  reflection: { label: "REFLECTION", color: "var(--color-brand-accent-amber)" },
+  health_metric: { label: "HEALTH", color: "var(--color-brand-accent-green)" },
+  journal_chunk: { label: "JOURNAL", color: "var(--color-brand-accent-rose)" },
 };
 
 function groupByDate(items: ContextItem[]): Map<string, ContextItem[]> {
@@ -52,20 +52,20 @@ export default function ContextPanel({ items, collapsed, onToggle }: Props) {
   return (
     <div
       className={cn(
-        "flex flex-col border-l border-[var(--color-slate-border)] bg-[var(--color-slate-bg)] transition-all",
+        "flex flex-col border-l border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] transition-all",
         collapsed ? "w-10" : "w-[360px]"
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-slate-border)] px-3 py-3">
+      <div className="flex items-center justify-between border-b border-[var(--color-brand-border)] px-3 py-3">
         {!collapsed && (
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate-text-dim)]">
-            Retrieved Context
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-brand-text-dim)]">
+            Retrieval Context
           </h2>
         )}
         <button
           onClick={onToggle}
-          className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-slate-muted)] hover:text-[var(--color-slate-text)] transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-brand-muted)] hover:text-[var(--color-brand-text)] transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             {collapsed ? (
@@ -81,14 +81,14 @@ export default function ContextPanel({ items, collapsed, onToggle }: Props) {
       {!collapsed && (
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {items.length === 0 ? (
-            <p className="text-xs text-[var(--color-slate-muted)] italic text-center mt-8">
+            <p className="text-xs text-[var(--color-brand-muted)] italic text-center mt-8">
               Context will appear here when you ask a question.
             </p>
           ) : (
             [...grouped.entries()].map(([date, dateItems]) => (
               <div key={date}>
-                <div className="sticky top-0 bg-[var(--color-slate-bg)] py-1 mb-2">
-                  <span className="text-[10px] font-mono font-semibold text-[var(--color-slate-accent)] uppercase tracking-wide">
+                <div className="sticky top-0 bg-[var(--color-brand-bg)] py-1 mb-2">
+                  <span className="text-[10px] font-mono font-semibold text-[var(--color-brand-accent)] uppercase tracking-wide">
                     {formatDate(date)}
                   </span>
                 </div>
@@ -103,7 +103,7 @@ export default function ContextPanel({ items, collapsed, onToggle }: Props) {
                     return (
                       <div
                         key={`${date}-${i}`}
-                        className="rounded border border-[var(--color-slate-border)] bg-[var(--color-slate-surface)] p-2.5"
+                        className="rounded border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-2.5"
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <span
@@ -116,12 +116,12 @@ export default function ContextPanel({ items, collapsed, onToggle }: Props) {
                             {category ?? cfg.label}
                           </span>
                           {typeof item.metadata?.sentiment === "number" && (
-                            <span className="text-[10px] text-[var(--color-slate-muted)]">
+                            <span className="text-[10px] text-[var(--color-brand-muted)]">
                               sentiment: {(item.metadata.sentiment as number).toFixed(1)}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[var(--color-slate-text)] leading-relaxed">
+                        <p className="text-xs text-[var(--color-brand-text)] leading-relaxed">
                           {item.content}
                         </p>
                       </div>

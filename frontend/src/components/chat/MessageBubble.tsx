@@ -13,13 +13,13 @@ type Props = {
 
 export default function MessageBubble({ role, content, isStreaming, accentColor }: Props) {
   const isUser = role === "user";
-  const accent = accentColor ?? "var(--color-slate-accent)";
+  const accent = accentColor ?? "var(--color-brand-accent)";
 
   return (
     <div className={cn("flex gap-3 py-3", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
         <div
-          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-slate-bg)]"
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-brand-bg)]"
           style={{
             background: `linear-gradient(to bottom right, ${accent}, ${accent}B3)`,
             boxShadow: `0 0 10px -2px ${accent}4D`,
@@ -34,8 +34,8 @@ export default function MessageBubble({ role, content, isStreaming, accentColor 
         className={cn(
           "max-w-[85%] rounded-xl px-4 py-3 text-sm",
           isUser
-            ? "text-[var(--color-slate-bg)]"
-            : "bg-[var(--color-slate-surface)] text-[var(--color-slate-text)] border border-[var(--color-slate-border)]/60"
+            ? "text-[var(--color-brand-bg)]"
+            : "bg-[var(--color-brand-surface)] text-[var(--color-brand-text)] border border-[var(--color-brand-border)]/60"
         )}
         style={isUser ? {
           backgroundColor: accent,
@@ -55,7 +55,7 @@ export default function MessageBubble({ role, content, isStreaming, accentColor 
                 h2: ({ children }) => <h2 className="my-2 text-base font-semibold">{children}</h2>,
                 h3: ({ children }) => <h3 className="my-2 text-sm font-semibold">{children}</h3>,
                 blockquote: ({ children }) => (
-                  <blockquote className="my-2 border-l-2 border-[var(--color-slate-border)] pl-3 italic opacity-90">
+                  <blockquote className="my-2 border-l-2 border-[var(--color-brand-accent)] pl-3 font-heading italic opacity-90">
                     {children}
                   </blockquote>
                 ),
@@ -63,13 +63,13 @@ export default function MessageBubble({ role, content, isStreaming, accentColor 
                   const isBlock = !!className;
                   if (isBlock) {
                     return (
-                      <code className="block overflow-x-auto rounded-md bg-[var(--color-slate-bg)] px-3 py-2 font-mono text-xs">
+                      <code className="block overflow-x-auto rounded-md bg-[var(--color-brand-bg)] px-3 py-2 font-mono text-xs">
                         {children}
                       </code>
                     );
                   }
                   return (
-                    <code className="rounded bg-[var(--color-slate-bg)] px-1.5 py-0.5 font-mono text-[0.85em]">
+                    <code className="rounded bg-[var(--color-brand-bg)] px-1.5 py-0.5 font-mono text-[0.85em]">
                       {children}
                     </code>
                   );
@@ -91,12 +91,12 @@ export default function MessageBubble({ role, content, isStreaming, accentColor 
                   </div>
                 ),
                 th: ({ children }) => (
-                  <th className="border border-[var(--color-slate-border)] bg-[var(--color-slate-bg)] px-2 py-1 font-semibold">
+                  <th className="border border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-2 py-1 font-semibold">
                     {children}
                   </th>
                 ),
                 td: ({ children }) => (
-                  <td className="border border-[var(--color-slate-border)] px-2 py-1">{children}</td>
+                  <td className="border border-[var(--color-brand-border)] px-2 py-1">{children}</td>
                 ),
               }}
             >
