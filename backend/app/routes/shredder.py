@@ -25,6 +25,11 @@ class EntryResultSchema(BaseModel):
     reflections_extracted: int
     people_mentions_extracted: int
     project_events_extracted: int
+    person_mentions_created: int = 0
+    project_events_created: int = 0
+    person_proposals_created: int = 0
+    project_proposals_created: int = 0
+    project_status_transitions: int = 0
     error: str | None
 
 
@@ -86,6 +91,22 @@ class ExtractionResultResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 
+def _entry_to_schema(e) -> "EntryResultSchema":
+    return EntryResultSchema(
+        entry_date=e.entry_date,
+        events_extracted=e.events_extracted,
+        reflections_extracted=e.reflections_extracted,
+        people_mentions_extracted=e.people_mentions_extracted,
+        project_events_extracted=e.project_events_extracted,
+        person_mentions_created=e.person_mentions_created,
+        project_events_created=e.project_events_created,
+        person_proposals_created=e.person_proposals_created,
+        project_proposals_created=e.project_proposals_created,
+        project_status_transitions=e.project_status_transitions,
+        error=e.error,
+    )
+
+
 @router.post("/run", response_model=ShredderRunResponse)
 async def shredder_run_all(db: AsyncSession = Depends(get_db)):
     result = await run_shredder(db)
@@ -93,17 +114,7 @@ async def shredder_run_all(db: AsyncSession = Depends(get_db)):
         processed=result.processed,
         failed=result.failed,
         skipped=result.skipped,
-        entries=[
-            EntryResultSchema(
-                entry_date=e.entry_date,
-                events_extracted=e.events_extracted,
-                reflections_extracted=e.reflections_extracted,
-                people_mentions_extracted=e.people_mentions_extracted,
-                project_events_extracted=e.project_events_extracted,
-                error=e.error,
-            )
-            for e in result.entries
-        ],
+        entries=[_entry_to_schema(e) for e in result.entries],
     )
 
 
@@ -126,17 +137,7 @@ async def shredder_run_single(
         processed=result.processed,
         failed=result.failed,
         skipped=result.skipped,
-        entries=[
-            EntryResultSchema(
-                entry_date=e.entry_date,
-                events_extracted=e.events_extracted,
-                reflections_extracted=e.reflections_extracted,
-                people_mentions_extracted=e.people_mentions_extracted,
-                project_events_extracted=e.project_events_extracted,
-                error=e.error,
-            )
-            for e in result.entries
-        ],
+        entries=[_entry_to_schema(e) for e in result.entries],
     )
 
 

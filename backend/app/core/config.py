@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
+    RESOLUTION_ENABLED: bool = True
+
     JOURNAL_SOURCE_DIR: str = str(PROJECT_ROOT.parent / "synthetic_journals")
 
     FRONTEND_URL: str = "http://localhost:3000"

@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.models.journal_entry import JournalEntry
 from app.models.journal_reflection import JournalReflection
 from app.models.life_event import EventCategory, LifeEvent, SentimentLabel
+from app.services.entity_resolution import resolve_entry
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +282,11 @@ class EntryResult:
     reflections_extracted: int = 0
     people_mentions_extracted: int = 0
     project_events_extracted: int = 0
+    person_mentions_created: int = 0
+    project_events_created: int = 0
+    person_proposals_created: int = 0
+    project_proposals_created: int = 0
+    project_status_transitions: int = 0
     error: str | None = None
 
 
@@ -313,23 +319,24 @@ async def _process_single_entry(
 
         extraction = await _call_gemini(client, entry_date, raw_content)
 
+        persisted_events: list[LifeEvent] = []
         for ev in extraction.life_events:
-            db.add(
-                LifeEvent(
-                    entry_date=entry_date,
-                    category=_coerce_category(ev.category),
-                    description=ev.description,
-                    metadata_json=ev.metadata.model_dump_json(exclude_none=True),
-                    sentiment=_coerce_sentiment_label(
-                        sentiment=ev.sentiment,
-                        sentiment_score=(
-                            max(-1.0, min(1.0, ev.sentiment_score))
-                            if ev.sentiment_score is not None else None
-                        ),
+            row = LifeEvent(
+                entry_date=entry_date,
+                category=_coerce_category(ev.category),
+                description=ev.description,
+                metadata_json=ev.metadata.model_dump_json(exclude_none=True),
+                sentiment=_coerce_sentiment_label(
+                    sentiment=ev.sentiment,
+                    sentiment_score=(
+                        max(-1.0, min(1.0, ev.sentiment_score))
+                        if ev.sentiment_score is not None else None
                     ),
-                    source_snippet=ev.source_snippet[:500] if ev.source_snippet else None,
-                )
+                ),
+                source_snippet=ev.source_snippet[:500] if ev.source_snippet else None,
             )
+            db.add(row)
+            persisted_events.append(row)
         result.events_extracted = len(extraction.life_events)
 
         for ref in extraction.reflections:
@@ -350,8 +357,24 @@ async def _process_single_entry(
             ]
         )
 
+        # Flush so LifeEvent.id is populated for resolution linking.
+        await db.flush()
+
+        if settings.RESOLUTION_ENABLED:
+            resolution = await resolve_entry(
+                db,
+                entry_date=entry_date,
+                life_events=persisted_events,
+                extraction=extraction,
+            )
+            result.person_mentions_created = resolution.person_mentions_created
+            result.project_events_created = resolution.project_events_created
+            result.person_proposals_created = resolution.person_proposals_created
+            result.project_proposals_created = resolution.project_proposals_created
+            result.project_status_transitions = resolution.project_status_transitions
+
         entry.processed_at = datetime.datetime.now(datetime.timezone.utc)
-        entry.shredder_version = "v2.1"
+        entry.shredder_version = "v2.2"
         await db.commit()
 
     except Exception as exc:

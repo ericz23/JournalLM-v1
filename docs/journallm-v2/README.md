@@ -7,8 +7,8 @@ Detailed specs live **one Markdown file per implementation step**, aligned with 
 | 0 | [00-versioning-and-conventions.md](./00-versioning-and-conventions.md) | Complete |
 | 1 | [01-database-foundation.md](./01-database-foundation.md) | Complete |
 | 2 | [02-shredder-v2.md](./02-shredder-v2.md) | Complete |
-| 3 | [03-entity-resolution.md](./03-entity-resolution.md) | Stub |
-| 4 | [04-entity-inbox-api.md](./04-entity-inbox-api.md) | Stub |
+| 3 | [03-entity-resolution.md](./03-entity-resolution.md) | Complete |
+| 4 | [04-entity-inbox-api.md](./04-entity-inbox-api.md) | Complete |
 | 5 | [05-entity-inbox-ui.md](./05-entity-inbox-ui.md) | Stub |
 | 6 | [06-backfill-and-operations.md](./06-backfill-and-operations.md) | Stub |
 | 7 | [07-dashboard-data-layer.md](./07-dashboard-data-layer.md) | Stub |
