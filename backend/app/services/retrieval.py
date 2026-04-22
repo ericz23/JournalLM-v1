@@ -164,7 +164,7 @@ async def _retrieve_life_events(
     for e in rows:
         meta = json.loads(e.metadata_json) if e.metadata_json else {}
         meta["category"] = e.category.value
-        meta["sentiment"] = e.sentiment_score
+        meta["sentiment"] = e.sentiment.value if e.sentiment else None
 
         if intent.keywords:
             text_blob = (e.description + " " + json.dumps(meta)).lower()

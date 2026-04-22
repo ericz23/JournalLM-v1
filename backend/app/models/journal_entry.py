@@ -19,6 +19,7 @@ class JournalEntry(TimestampMixin, Base):
     entry_date: Mapped[datetime.date] = mapped_column(Date, unique=True, index=True)
     raw_content: Mapped[str] = mapped_column(Text)
     file_hash: Mapped[str] = mapped_column(String(64))
+    shredder_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     processed_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

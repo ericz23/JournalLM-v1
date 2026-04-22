@@ -42,7 +42,7 @@ Do NOT guess or fill in gaps.
 If the user asks about dates outside this range, tell them you don't \
 have data for that period.
 
-5. For questions about feelings or mood, reference the sentiment scores \
+5. For questions about feelings or mood, reference the sentiment labels \
 and reflections from the context. Use the user's own words from journal \
 snippets when possible.
 

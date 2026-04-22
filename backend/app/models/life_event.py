@@ -1,7 +1,7 @@
 import datetime
 import enum
 
-from sqlalchemy import Date, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -16,6 +16,12 @@ class EventCategory(str, enum.Enum):
     HEALTH = "HEALTH"
     TRAVEL = "TRAVEL"
     PERSONAL = "PERSONAL"
+
+
+class SentimentLabel(str, enum.Enum):
+    POSITIVE = "POSITIVE"
+    NEGATIVE = "NEGATIVE"
+    NEUTRAL = "NEUTRAL"
 
 
 class LifeEvent(TimestampMixin, Base):
@@ -35,8 +41,8 @@ class LifeEvent(TimestampMixin, Base):
     category: Mapped[EventCategory] = mapped_column(Enum(EventCategory))
     description: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sentiment_score: Mapped[float | None] = mapped_column(
-        Float, nullable=True, comment="Range: -1.0 (negative) to 1.0 (positive)"
+    sentiment: Mapped[SentimentLabel | None] = mapped_column(
+        Enum(SentimentLabel), nullable=True, comment="Categorical sentiment label"
     )
     source_snippet: Mapped[str | None] = mapped_column(
         String(500), nullable=True, comment="Original prose fragment for provenance"

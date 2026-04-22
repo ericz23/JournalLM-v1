@@ -83,7 +83,7 @@ async def _gather_week_data(
         meta = json.loads(e.metadata_json) if e.metadata_json else {}
         event_lines.append(
             f"[{e.entry_date}] {e.category.value}: {e.description} "
-            f"(sentiment: {e.sentiment_score})"
+            f"(sentiment: {e.sentiment.value if e.sentiment else 'UNKNOWN'})"
         )
 
     ref_lines: list[str] = []

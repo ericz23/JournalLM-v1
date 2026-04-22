@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.journal_entry import JournalEntry
 from app.models.journal_reflection import JournalReflection
-from app.models.life_event import EventCategory, LifeEvent
+from app.models.life_event import EventCategory, LifeEvent, SentimentLabel
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +187,16 @@ def _coerce_category(raw: str) -> EventCategory:
     return EventCategory.PERSONAL
 
 
+def _score_to_label(score: float | None) -> SentimentLabel | None:
+    if score is None:
+        return None
+    if score > 0.3:
+        return SentimentLabel.POSITIVE
+    if score < -0.3:
+        return SentimentLabel.NEGATIVE
+    return SentimentLabel.NEUTRAL
+
+
 # ── Per-entry processing ─────────────────────────────────────────────
 
 
@@ -234,7 +244,7 @@ async def _process_single_entry(
                     category=_coerce_category(ev.category),
                     description=ev.description,
                     metadata_json=ev.metadata.model_dump_json(exclude_none=True),
-                    sentiment_score=max(-1.0, min(1.0, ev.sentiment_score)),
+                    sentiment=_score_to_label(max(-1.0, min(1.0, ev.sentiment_score))),
                     source_snippet=ev.source_snippet[:500] if ev.source_snippet else None,
                 )
             )
@@ -252,6 +262,7 @@ async def _process_single_entry(
         result.reflections_extracted = len(extraction.reflections)
 
         entry.processed_at = datetime.datetime.now(datetime.timezone.utc)
+        entry.shredder_version = "v2.0"
         await db.commit()
 
     except Exception as exc:
@@ -322,7 +333,7 @@ async def get_extraction_results(
                 "category": e.category.value,
                 "description": e.description,
                 "metadata": json.loads(e.metadata_json) if e.metadata_json else {},
-                "sentiment_score": e.sentiment_score,
+                "sentiment": e.sentiment.value if e.sentiment else None,
                 "source_snippet": e.source_snippet,
             }
             for e in events

@@ -46,7 +46,7 @@ class EventSchema(BaseModel):
     category: str
     description: str
     metadata: dict
-    sentiment_score: float | None
+    sentiment: str | None
     source_snippet: str | None
 
 

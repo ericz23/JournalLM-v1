@@ -74,7 +74,7 @@ async def dashboard_data(
                     "restaurant": restaurant,
                     "dishes": meta.get("dishes", []),
                     "meal_type": meta.get("meal_type", ""),
-                    "sentiment": e.sentiment_score,
+                    "sentiment": e.sentiment.value if e.sentiment else None,
                     "description": e.description,
                 })
 
@@ -84,7 +84,7 @@ async def dashboard_data(
                 "subject": meta.get("subject", ""),
                 "milestone": meta.get("milestone", ""),
                 "description": e.description,
-                "sentiment": e.sentiment_score,
+                "sentiment": e.sentiment.value if e.sentiment else None,
             })
 
     reflection_list: list[dict] = []
