@@ -23,6 +23,8 @@ class EntryResultSchema(BaseModel):
     entry_date: str
     events_extracted: int
     reflections_extracted: int
+    people_mentions_extracted: int
+    project_events_extracted: int
     error: str | None
 
 
@@ -57,10 +59,28 @@ class ReflectionSchema(BaseModel):
     is_actionable: bool
 
 
+class PersonMentionSchema(BaseModel):
+    name: str
+    relationship_hint: str | None = None
+    interaction_context: str | None = None
+    linked_event_hint: str | None = None
+    sentiment: str | None = None
+
+
+class ProjectEventSchema(BaseModel):
+    project_name: str
+    event_type: str
+    description: str
+    linked_event_hint: str | None = None
+    suggested_project_status: str | None = None
+
+
 class ExtractionResultResponse(BaseModel):
     entry_date: str
     life_events: list[EventSchema]
     reflections: list[ReflectionSchema]
+    people_mentioned: list[PersonMentionSchema] = []
+    project_events: list[ProjectEventSchema] = []
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -78,6 +98,8 @@ async def shredder_run_all(db: AsyncSession = Depends(get_db)):
                 entry_date=e.entry_date,
                 events_extracted=e.events_extracted,
                 reflections_extracted=e.reflections_extracted,
+                people_mentions_extracted=e.people_mentions_extracted,
+                project_events_extracted=e.project_events_extracted,
                 error=e.error,
             )
             for e in result.entries
@@ -109,6 +131,8 @@ async def shredder_run_single(
                 entry_date=e.entry_date,
                 events_extracted=e.events_extracted,
                 reflections_extracted=e.reflections_extracted,
+                people_mentions_extracted=e.people_mentions_extracted,
+                project_events_extracted=e.project_events_extracted,
                 error=e.error,
             )
             for e in result.entries

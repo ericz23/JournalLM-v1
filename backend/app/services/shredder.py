@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import enum
 import json
 import logging
 from dataclasses import dataclass, field
@@ -49,7 +50,8 @@ class ExtractedEvent(BaseModel):
     category: str
     description: str
     metadata: EventMetadata
-    sentiment_score: float
+    sentiment: str | None = None
+    sentiment_score: float | None = None
     source_snippet: str
 
 
@@ -62,6 +64,33 @@ class ExtractedReflection(BaseModel):
 class ExtractionResponse(BaseModel):
     life_events: list[ExtractedEvent]
     reflections: list[ExtractedReflection]
+    people_mentioned: list["ExtractedPersonMention"] = []
+    project_events: list["ExtractedProjectEvent"] = []
+
+
+class ExtractedPersonMention(BaseModel):
+    name: str
+    relationship_hint: str | None = None
+    interaction_context: str | None = None
+    linked_event_hint: str | None = None
+    sentiment: str | None = None
+
+
+class ProjectEventType(str, enum.Enum):
+    progress = "progress"
+    milestone = "milestone"
+    setback = "setback"
+    reflection = "reflection"
+    start = "start"
+    pause = "pause"
+
+
+class ExtractedProjectEvent(BaseModel):
+    project_name: str
+    event_type: str
+    description: str
+    linked_event_hint: str | None = None
+    suggested_project_status: str | None = None
 
 
 # ── System prompt ────────────────────────────────────────────────────
@@ -69,7 +98,7 @@ class ExtractionResponse(BaseModel):
 SYSTEM_INSTRUCTION = """\
 You are a structured data extraction agent for a personal journal intelligence system called JournalLM.
 
-Your task: read a single daily journal entry and extract two types of structured data.
+Your task: read a single daily journal entry and extract four types of structured data.
 
 ━━━ 1. LIFE EVENTS ━━━
 
@@ -95,9 +124,10 @@ Metadata fields — populate the ones relevant to the category:
 • TRAVEL:   location, notes
 • PERSONAL: notes
 
-Sentiment scoring (-1.0 to 1.0):
-  -1.0 = deeply negative  |  -0.5 = frustrated/disappointed  |  0.0 = neutral factual mention
-   0.5 = positive/enjoyable  |  0.8 = very positive  |  1.0 = euphoric/peak experience
+Sentiment labels:
+• POSITIVE — clearly positive, enjoyable, uplifting
+• NEGATIVE — clearly negative, stressful, frustrating
+• NEUTRAL  — factual mention without strong valence
 
 Rules:
 • A single bullet point may produce MULTIPLE events. "Lunch at Lula Cafe with Sam" → one DIETARY event AND one SOCIAL event.
@@ -118,9 +148,33 @@ Rules:
 • Do NOT convert individual gratitude bullet points into reflections.
 • Do NOT create reflections that merely summarize events — only extract genuine insights or mental shifts.
 
+━━━ 3. PEOPLE MENTIONED ━━━
+
+Extract explicit person mentions as surface strings only (do not resolve identity).
+For each person mention include:
+• name
+• relationship_hint (friend, colleague, family, client, etc.) if inferable
+• interaction_context (supporting snippet)
+• linked_event_hint (optional)
+• sentiment (POSITIVE/NEGATIVE/NEUTRAL) if inferable
+
+━━━ 4. PROJECT EVENTS ━━━
+
+Extract recurring project/workstream updates.
+For each project event include:
+• project_name
+• event_type: one of [progress, milestone, setback, reflection, start, pause]
+• description
+• linked_event_hint (optional)
+• suggested_project_status: one of [ACTIVE, PAUSED, COMPLETED, ABANDONED] when explicit, else null
+
 ━━━ OUTPUT ━━━
 
-Return a JSON object with two arrays: "life_events" and "reflections".
+Return a JSON object with arrays:
+- "life_events"
+- "reflections"
+- "people_mentioned"
+- "project_events"
 """
 
 
@@ -197,6 +251,26 @@ def _score_to_label(score: float | None) -> SentimentLabel | None:
     return SentimentLabel.NEUTRAL
 
 
+def _coerce_sentiment_label(
+    sentiment: str | None,
+    sentiment_score: float | None,
+) -> SentimentLabel | None:
+    if sentiment is not None:
+        raw = sentiment.strip().upper()
+        if raw in SentimentLabel.__members__:
+            return SentimentLabel[raw]
+        logger.warning("Unknown sentiment label '%s' from Gemini", sentiment)
+    return _score_to_label(sentiment_score)
+
+
+def _is_valid_project_event_type(raw: str) -> bool:
+    try:
+        ProjectEventType(raw)
+        return True
+    except ValueError:
+        return False
+
+
 # ── Per-entry processing ─────────────────────────────────────────────
 
 
@@ -205,6 +279,8 @@ class EntryResult:
     entry_date: str
     events_extracted: int = 0
     reflections_extracted: int = 0
+    people_mentions_extracted: int = 0
+    project_events_extracted: int = 0
     error: str | None = None
 
 
@@ -244,7 +320,13 @@ async def _process_single_entry(
                     category=_coerce_category(ev.category),
                     description=ev.description,
                     metadata_json=ev.metadata.model_dump_json(exclude_none=True),
-                    sentiment=_score_to_label(max(-1.0, min(1.0, ev.sentiment_score))),
+                    sentiment=_coerce_sentiment_label(
+                        sentiment=ev.sentiment,
+                        sentiment_score=(
+                            max(-1.0, min(1.0, ev.sentiment_score))
+                            if ev.sentiment_score is not None else None
+                        ),
+                    ),
                     source_snippet=ev.source_snippet[:500] if ev.source_snippet else None,
                 )
             )
@@ -260,9 +342,16 @@ async def _process_single_entry(
                 )
             )
         result.reflections_extracted = len(extraction.reflections)
+        result.people_mentions_extracted = len(extraction.people_mentioned)
+        result.project_events_extracted = len(
+            [
+                ev for ev in extraction.project_events
+                if _is_valid_project_event_type(ev.event_type)
+            ]
+        )
 
         entry.processed_at = datetime.datetime.now(datetime.timezone.utc)
-        entry.shredder_version = "v2.0"
+        entry.shredder_version = "v2.1"
         await db.commit()
 
     except Exception as exc:
@@ -347,4 +436,8 @@ async def get_extraction_results(
             }
             for r in reflections
         ],
+        # Step 2 extends extraction schema with people/project structures.
+        # Canonical persistence and replay of these items is handled in Step 3.
+        "people_mentioned": [],
+        "project_events": [],
     }
