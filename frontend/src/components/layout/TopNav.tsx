@@ -1,7 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  getCachedInboxSummary,
+  type InboxSummary,
+} from "@/lib/inbox-api";
+import InboxBadge from "@/components/inbox/InboxBadge";
 
 const NAV_ITEMS = [
   {
@@ -13,6 +19,16 @@ const NAV_ITEMS = [
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
         <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/inbox",
+    label: "Inbox",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
       </svg>
     ),
   },
@@ -29,6 +45,21 @@ const NAV_ITEMS = [
 
 export default function TopNav() {
   const pathname = usePathname();
+  const [summary, setSummary] = useState<InboxSummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ctl = new AbortController();
+    getCachedInboxSummary(ctl.signal)
+      .then((s) => {
+        if (!cancelled) setSummary(s);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      ctl.abort();
+    };
+  }, [pathname]);
 
   return (
     <nav className="flex items-center gap-1 border-b border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] px-6 py-2.5">
@@ -47,6 +78,7 @@ export default function TopNav() {
       <div className="flex items-center gap-4">
         {NAV_ITEMS.map(({ href, label, icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const showBadge = href === "/inbox" && summary !== null;
           return (
             <Link
               key={href}
@@ -59,6 +91,7 @@ export default function TopNav() {
             >
               {icon}
               {label}
+              {showBadge && summary && <InboxBadge count={summary.total_pending} />}
             </Link>
           );
         })}
