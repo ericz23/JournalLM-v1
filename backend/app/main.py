@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.routes import chat, dashboard, health, journals, shredder, whoop
+from app.routes import chat, dashboard, entity_inbox, health, journals, shredder, whoop
 
 
 @asynccontextmanager
@@ -31,6 +31,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 app.include_router(journals.router, prefix="/api")
 app.include_router(shredder.router, prefix="/api")
+app.include_router(entity_inbox.router, prefix="/api")
 app.include_router(whoop.router)
 app.include_router(chat.router)
 app.include_router(dashboard.router)
