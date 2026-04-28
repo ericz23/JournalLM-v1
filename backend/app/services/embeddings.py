@@ -8,13 +8,14 @@ search for thematic retrieval.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import struct
 from dataclasses import dataclass
 
 from google import genai
 from google.genai import types
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -103,6 +104,29 @@ class EmbedResult:
     entries_processed: int = 0
     chunks_created: int = 0
     skipped: int = 0
+
+
+async def purge_entry_embeddings(db: AsyncSession, entry_date: datetime.date) -> int:
+    """Delete journal_embeddings rows + matching vec_journal_chunks rowids for entry_date.
+
+    Returns the number of chunk rows removed. Caller is responsible for committing.
+    """
+    ids = (await db.execute(
+        select(JournalEmbedding.id).where(JournalEmbedding.entry_date == entry_date)
+    )).scalars().all()
+
+    if not ids:
+        return 0
+
+    placeholders = ",".join(str(int(i)) for i in ids)
+    await db.execute(
+        text(f"DELETE FROM vec_journal_chunks WHERE rowid IN ({placeholders})")
+    )
+    await db.execute(
+        delete(JournalEmbedding).where(JournalEmbedding.entry_date == entry_date)
+    )
+
+    return len(ids)
 
 
 async def embed_journals(db: AsyncSession) -> EmbedResult:

@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.journal_entry import JournalEntry
+from app.services.embeddings import purge_entry_embeddings
 from app.services.journal_parser import ParsedJournal, scan_journal_directory
 
 
@@ -67,6 +68,9 @@ async def ingest_journals(
                 existing.raw_content = journal.raw_content
                 existing.file_hash = journal.file_hash
                 existing.processed_at = None
+                # Step 6 §6.3: purge stale embeddings so the next /api/chat/embed
+                # regenerates chunks instead of skipping the entry as "already embedded".
+                await purge_entry_embeddings(db, existing.entry_date)
                 result.updated += 1
 
         except Exception as exc:

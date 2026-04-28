@@ -22,6 +22,10 @@ class Settings(BaseSettings):
 
     JOURNAL_SOURCE_DIR: str = str(PROJECT_ROOT.parent / "synthetic_journals")
 
+    BACKFILL_RATE_LIMIT_SECONDS: float = 1.0
+    BACKFILL_LOG_DIR: str = str(PROJECT_ROOT / "data" / "backfill_logs")
+    BACKFILL_SNAPSHOT_DIR: str | None = None
+
     FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = {"env_file": str(PROJECT_ROOT.parent / ".env"), "extra": "ignore"}

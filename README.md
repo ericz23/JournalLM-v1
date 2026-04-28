@@ -67,8 +67,21 @@ The frontend runs at `http://localhost:3000` and connects to the backend at `htt
 
 1. **Ingest journals** — `POST /api/journals/ingest` scans the journal source directory
 2. **Shred entries** — `POST /api/shredder/run` extracts structured events and reflections
-3. **Build embeddings** — `POST /api/chat/embed` generates vector embeddings for semantic search
-4. **Chat** — Open the chat page to query your journal data with RAG-grounded responses
+3. **Triage entity inbox** — `/inbox` confirms or merges proposed people/projects
+4. **Build embeddings** — `POST /api/chat/embed` generates vector embeddings for semantic search
+5. **Chat** — Open the chat page to query your journal data with RAG-grounded responses
+
+### Operational scripts
+
+For batch operations (V2 cutover, prompt-bump re-shreds, re-embed runs), see
+the runbook in [`docs/journallm-v2/06-backfill-and-operations.md`](docs/journallm-v2/06-backfill-and-operations.md).
+The two main entry points are:
+
+- `python -m scripts.backfill --max-version v2.2 --force --note "V2 cutover"` — batch shred + resolve.
+- `python -m scripts.re_embed` — purge + regenerate journal embeddings.
+
+Both scripts must be run from the `backend/` directory and require the
+FastAPI server to be stopped to avoid LLM rate-limit conflicts.
 
 ## Project Structure
 

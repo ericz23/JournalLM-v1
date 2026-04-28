@@ -1,0 +1,5 @@
+*
+!.gitignore
+!backfill_logs/
+backfill_logs/*
+!backfill_logs/.gitkeep

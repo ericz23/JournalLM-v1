@@ -272,6 +272,11 @@ def _is_valid_project_event_type(raw: str) -> bool:
         return False
 
 
+# ── Public version constant ──────────────────────────────────────────
+
+SHREDDER_VERSION = "v2.2"
+
+
 # ── Per-entry processing ─────────────────────────────────────────────
 
 
@@ -298,11 +303,17 @@ class ShredderResult:
     entries: list[EntryResult] = field(default_factory=list)
 
 
-async def _process_single_entry(
+async def process_single_entry(
     db: AsyncSession,
     entry: JournalEntry,
     client: genai.Client,
 ) -> EntryResult:
+    """Run the full per-entry pipeline (clear + extract + resolve + commit).
+
+    Public entry point shared by `run_shredder` (via /api/shredder/run) and
+    the backfill service (Step 6). Owns the per-entry transaction; on error
+    rolls back and records the failure on the returned `EntryResult`.
+    """
     entry_date = entry.entry_date
     raw_content = entry.raw_content
     result = EntryResult(entry_date=entry_date.isoformat())
@@ -374,7 +385,7 @@ async def _process_single_entry(
             result.project_status_transitions = resolution.project_status_transitions
 
         entry.processed_at = datetime.datetime.now(datetime.timezone.utc)
-        entry.shredder_version = "v2.2"
+        entry.shredder_version = SHREDDER_VERSION
         await db.commit()
 
     except Exception as exc:
@@ -411,7 +422,7 @@ async def run_shredder(
             overall.skipped += 1
             continue
 
-        entry_result = await _process_single_entry(db, entry, client)
+        entry_result = await process_single_entry(db, entry, client)
         overall.entries.append(entry_result)
 
         if entry_result.error:

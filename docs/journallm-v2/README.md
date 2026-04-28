@@ -10,7 +10,7 @@ Detailed specs live **one Markdown file per implementation step**, aligned with 
 | 3 | [03-entity-resolution.md](./03-entity-resolution.md) | Complete |
 | 4 | [04-entity-inbox-api.md](./04-entity-inbox-api.md) | Complete |
 | 5 | [05-entity-inbox-ui.md](./05-entity-inbox-ui.md) | Complete |
-| 6 | [06-backfill-and-operations.md](./06-backfill-and-operations.md) | Stub |
+| 6 | [06-backfill-and-operations.md](./06-backfill-and-operations.md) | Complete |
 | 7 | [07-dashboard-data-layer.md](./07-dashboard-data-layer.md) | Stub |
 | 8 | [08-dashboard-editorial-ui.md](./08-dashboard-editorial-ui.md) | Stub |
 | 9 | [09-embeddings-and-rag.md](./09-embeddings-and-rag.md) | Stub |
