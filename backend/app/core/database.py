@@ -185,6 +185,66 @@ async def _migrate_life_events_sentiment(conn) -> None:
     logger.info("life_events sentiment migration complete.")
 
 
+async def _migrate_narrative_cache_window_end(conn) -> None:
+    """Step 7 §11.1: add window_end + stale_at to narrative_cache.
+
+    Backfills `window_end` from existing `week_end` so legacy V1 rows remain
+    addressable under the new rolling-window lookup key. Both new columns
+    are nullable for safety; new code always writes `window_end`.
+    """
+    if not await _table_exists(conn, "narrative_cache"):
+        return
+
+    if not await _column_exists(conn, "narrative_cache", "window_end"):
+        logger.info("Adding window_end column to narrative_cache...")
+        await conn.execute(text(
+            "ALTER TABLE narrative_cache ADD COLUMN window_end DATE"
+        ))
+        await conn.execute(text(
+            "UPDATE narrative_cache SET window_end = week_end WHERE window_end IS NULL"
+        ))
+        # Unique partial index — multiple NULLs allowed (legacy rows that
+        # somehow lack a week_end), but every populated value stays unique.
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_narrative_cache_window_end "
+            "ON narrative_cache(window_end) WHERE window_end IS NOT NULL"
+        ))
+
+    if not await _column_exists(conn, "narrative_cache", "stale_at"):
+        logger.info("Adding stale_at column to narrative_cache...")
+        await conn.execute(text(
+            "ALTER TABLE narrative_cache ADD COLUMN stale_at DATETIME"
+        ))
+
+
+async def _migrate_dashboard_indices(conn) -> None:
+    """Step 7 §12: ensure read-side indices for dashboard aggregations exist.
+
+    All `CREATE INDEX IF NOT EXISTS` — safe to re-run.
+    """
+    if await _table_exists(conn, "person_mentions"):
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_person_mentions_entry_date_person "
+            "ON person_mentions(entry_date, person_id)"
+        ))
+    if await _table_exists(conn, "project_events"):
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_project_events_entry_date_project "
+            "ON project_events(entry_date, project_id)"
+        ))
+    if await _table_exists(conn, "life_events"):
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_life_events_dietary "
+            "ON life_events(category, entry_date)"
+        ))
+    if await _table_exists(conn, "journal_reflections"):
+        # SQLite expression index on lowercased topic for the recurring-topic check.
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_journal_reflections_topic_lower "
+            "ON journal_reflections(lower(topic), entry_date)"
+        ))
+
+
 async def _cleanup_temp_sessions(conn) -> None:
     """Delete orphaned temporary sessions on startup."""
     result = await conn.execute(text(
@@ -219,4 +279,6 @@ async def init_db() -> None:
 
         await _migrate_embeddings_to_vec0(conn)
         await _migrate_add_is_temporary(conn)
+        await _migrate_narrative_cache_window_end(conn)
+        await _migrate_dashboard_indices(conn)
         await _cleanup_temp_sessions(conn)

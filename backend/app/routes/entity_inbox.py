@@ -20,6 +20,7 @@ from app.models.entity_proposal import (
 )
 from app.models.projects import ProjectStatus
 from app.services import entity_inbox_service as inbox
+from app.services.narrative import mark_narrative_stale_for_date
 
 router = APIRouter(prefix="/entity-inbox", tags=["entity-inbox"])
 
@@ -212,6 +213,14 @@ async def _run_action(
     except Exception:
         await db.rollback()
         raise
+
+    # Step 7 §11.4 — entity changes for an entry_date can shift narrative
+    # framing (people / projects rolled into the prompt), so invalidate any
+    # cached narrative whose window contains it. Idempotent no-op when none.
+    proposal_date = getattr(outcome.proposal, "entry_date", None)
+    if proposal_date is not None:
+        await mark_narrative_stale_for_date(db, proposal_date)
+
     await db.commit()
     await db.refresh(outcome.proposal)
     return _outcome_to_response(outcome)

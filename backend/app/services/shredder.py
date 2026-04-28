@@ -24,6 +24,7 @@ from app.models.journal_entry import JournalEntry
 from app.models.journal_reflection import JournalReflection
 from app.models.life_event import EventCategory, LifeEvent, SentimentLabel
 from app.services.entity_resolution import resolve_entry
+from app.services.narrative import mark_narrative_stale_for_date
 
 logger = logging.getLogger(__name__)
 
@@ -386,6 +387,11 @@ async def process_single_entry(
 
         entry.processed_at = datetime.datetime.now(datetime.timezone.utc)
         entry.shredder_version = SHREDDER_VERSION
+
+        # Step 7 §11.4 — invalidate any cached narrative whose window
+        # contains this entry_date. Idempotent no-op when no rows match.
+        await mark_narrative_stale_for_date(db, entry_date)
+
         await db.commit()
 
     except Exception as exc:

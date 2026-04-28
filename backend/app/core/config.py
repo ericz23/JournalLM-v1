@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     BACKFILL_LOG_DIR: str = str(PROJECT_ROOT / "data" / "backfill_logs")
     BACKFILL_SNAPSHOT_DIR: str | None = None
 
+    # Step 7 §19 — dashboard data-layer tunables.
+    DASHBOARD_INNER_CIRCLE_CAP: int = 6
+    DASHBOARD_ACTIVE_PROJECTS_CAP: int = 8
+    DASHBOARD_DORMANCY_DAYS: int = 14
+    DASHBOARD_PROJECT_RECENT_DAYS: int = 28
+    NARRATIVE_REFLECTION_LOOKBACK_DAYS: int = 28
+
     FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = {"env_file": str(PROJECT_ROOT.parent / ".env"), "extra": "ignore"}
