@@ -114,36 +114,113 @@ export async function requestSSE(
   return res.body.getReader();
 }
 
-export type DashboardData = {
-  has_data: boolean;
-  date_range: { start: string; end: string } | null;
-  dining: Array<{
-    date: string;
-    restaurant: string;
-    dishes: string[];
-    meal_type: string;
-    sentiment: number;
-    description: string;
-  }>;
-  reflections: Array<{
-    date: string;
-    topic: string;
-    content: string;
-    is_actionable: boolean;
-  }>;
-  learning: Array<{
-    date: string;
-    subject: string;
-    milestone: string;
-    description: string;
-    sentiment: number;
-  }>;
+// ── V2 Dashboard types (Step 7/8) ─────────────────────────────────
+
+export type Sentiment = "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+
+export type DashboardWindow = {
+  start: string;
+  end: string;
+  previous_start: string;
+  previous_end: string;
 };
+
+export type InnerCirclePerson = {
+  person_id: number;
+  canonical_name: string;
+  relationship_type: string | null;
+  mention_count_window: number;
+  mention_count_previous: number;
+  last_mention_date: string;
+  last_mention_snippet: string | null;
+  sentiment_distribution: Record<Sentiment, number>;
+  dominant_sentiment: Sentiment | "MIXED" | null;
+  days_since_last_mention: number;
+};
+
+export type ActiveProject = {
+  project_id: number;
+  name: string;
+  category: string | null;
+  status: "ACTIVE" | "PAUSED";
+  update_count_window: number;
+  update_count_previous: number;
+  last_event_date: string;
+  last_event_snippet: string | null;
+  last_event_type: string | null;
+  streak_dot_sequence: boolean[];
+  is_dormant: boolean;
+  days_since_last_event: number;
+  target_date: string | null;
+};
+
+export type DiningRow = {
+  date: string;
+  restaurant: string;
+  dishes: string[];
+  meal_type: string;
+  sentiment: Sentiment | null;
+  description: string;
+  visit_count_total: number;
+  visit_count_window: number;
+  is_repeat: boolean;
+};
+
+export type FollowUpLink = {
+  matched_kind: "life_event" | "project_event";
+  matched_count: number;
+  sample_description: string;
+  sample_date: string;
+  project_id: number | null;
+};
+
+export type ReflectionRow = {
+  date: string;
+  topic: string;
+  content: string;
+  is_actionable: boolean;
+  is_recurring: boolean;
+  follow_up: FollowUpLink | null;
+};
+
+export type LearningRow = {
+  date: string;
+  subject: string;
+  milestone: string;
+  description: string;
+  sentiment: Sentiment | null;
+};
+
+export type LearningSubjectTimeline = {
+  subject: string;
+  sessions_window: number;
+  last_milestone: string | null;
+  last_session_date: string;
+  sentiment_distribution: Record<Sentiment, number>;
+};
+
+export type DashboardPayload = {
+  has_data: boolean;
+  window: DashboardWindow | null;
+  inner_circle: InnerCirclePerson[];
+  inner_circle_total: number;
+  inner_circle_insight: string | null;
+  active_projects: ActiveProject[];
+  active_projects_total: number;
+  active_projects_insight: string | null;
+  dining: DiningRow[];
+  reflections: ReflectionRow[];
+  learning: LearningRow[];
+  learning_by_subject: LearningSubjectTimeline[];
+};
+
+/** @deprecated use DashboardPayload */
+export type DashboardData = DashboardPayload;
 
 export type NarrativeData = {
   content: string;
-  week_start: string;
-  week_end: string;
+  window_start: string;
+  window_end: string;
   generated_at: string | null;
   cached: boolean;
 };
@@ -180,8 +257,8 @@ function withRefDate(path: string, refDate?: string): string {
 export async function getDashboardData(
   signal?: AbortSignal,
   refDate?: string
-): Promise<DashboardData> {
-  return requestJson<DashboardData>(withRefDate("/api/dashboard/data", refDate), { signal });
+): Promise<DashboardPayload> {
+  return requestJson<DashboardPayload>(withRefDate("/api/dashboard/data", refDate), { signal });
 }
 
 export async function getDashboardNarrative(

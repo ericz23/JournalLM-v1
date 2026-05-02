@@ -1,51 +1,71 @@
 "use client";
 
-type DiningEntry = {
-  date: string;
-  restaurant: string;
-  dishes: string[];
-  meal_type: string;
-  sentiment: number;
-  description: string;
-};
+import type { DiningRow, Sentiment } from "@/lib/api";
 
 type Props = {
-  items: DiningEntry[];
+  items: DiningRow[];
   loading: boolean;
 };
 
-function sentimentColor(score: number) {
-  if (score >= 0.3) return "var(--color-brand-accent-green)";
-  if (score <= -0.3) return "var(--color-brand-accent-rose)";
-  return "var(--color-brand-muted)";
+const SENTIMENT_COLORS: Record<Sentiment, string> = {
+  POSITIVE: "var(--color-brand-accent-green)",
+  NEGATIVE: "var(--color-brand-accent-rose)",
+  NEUTRAL: "var(--color-brand-muted)",
+};
+
+function sentimentColor(s: Sentiment | null): string {
+  return s ? SENTIMENT_COLORS[s] : "var(--color-brand-muted)";
 }
 
-function sentimentLabel(score: number) {
-  if (score >= 0.3) return "positive";
-  if (score <= -0.3) return "negative";
-  return "neutral";
+function sentimentLabel(s: Sentiment | null): string {
+  return s ? s.toLowerCase() : "neutral";
 }
 
 function mealIcon(type: string) {
   switch (type) {
     case "dinner":
-      return "\u{1F37D}\uFE0F";
+      return "🍽️";
     case "lunch":
-      return "\u2615";
+      return "☕";
     case "snack":
-      return "\u{1F375}";
+      return "🍵";
     default:
-      return "\u{1F374}";
+      return "🍴";
   }
 }
 
+function formatDate(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function DiningLog({ items, loading }: Props) {
+  const repeatCount = items.filter((d) => d.is_repeat).length;
+
+  const counterText =
+    items.length > 0
+      ? repeatCount > 0
+        ? `${items.length} meals · ${repeatCount} repeat`
+        : `${items.length} meals`
+      : "";
+
   return (
     <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-brand-accent-amber)]/15">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-accent-amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--color-brand-accent-amber)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
               <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
               <line x1="6" y1="1" x2="6" y2="4" />
@@ -53,13 +73,11 @@ export default function DiningLog({ items, loading }: Props) {
               <line x1="14" y1="1" x2="14" y2="4" />
             </svg>
           </div>
-          <h2 className="font-heading text-sm text-[var(--color-brand-text)]">
-            Dining Log
-          </h2>
+          <h2 className="font-heading text-sm text-[var(--color-brand-text)]">Dining Log</h2>
         </div>
-        {!loading && items.length > 0 && (
+        {!loading && counterText && (
           <span className="rounded-full bg-[var(--color-brand-accent-amber)]/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-[var(--color-brand-accent-amber)]">
-            {items.length} meals
+            {counterText}
           </span>
         )}
       </div>
@@ -71,9 +89,11 @@ export default function DiningLog({ items, loading }: Props) {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="py-8 text-center text-xs text-[var(--color-brand-text-dim)]">No dining events this week.</p>
+        <p className="py-8 text-center text-xs text-[var(--color-brand-text-dim)]">
+          No dining events this week.
+        </p>
       ) : (
-        <ul className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+        <ul className="max-h-[450px] space-y-2 overflow-y-auto pr-1">
           {items.map((d, i) => {
             const color = sentimentColor(d.sentiment);
             return (
@@ -87,10 +107,11 @@ export default function DiningLog({ items, loading }: Props) {
                 />
                 <span className="mt-0.5 text-base leading-none">{mealIcon(d.meal_type)}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-[var(--color-brand-text)]">
                       {d.restaurant}
                     </span>
+                    {/* Sentiment chip */}
                     <span
                       className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
                       style={{
@@ -99,16 +120,26 @@ export default function DiningLog({ items, loading }: Props) {
                       }}
                     >
                       {sentimentLabel(d.sentiment)}
+                      <span className="sr-only"> sentiment</span>
                     </span>
+                    {/* Repeat-visit badge */}
+                    {d.is_repeat && (
+                      <span className="rounded-full bg-[var(--color-brand-accent)]/10 px-2 py-0.5 font-mono text-[9px] text-[var(--color-brand-accent)]">
+                        {d.visit_count_total}× visit
+                        {d.visit_count_window > 1 && (
+                          <> · {d.visit_count_window} this week</>
+                        )}
+                      </span>
+                    )}
                   </div>
                   {d.dishes.length > 0 && (
-                    <p className="mt-0.5 text-[11px] text-[var(--color-brand-text-dim)] truncate">
-                      {d.dishes.join(" \u00B7 ")}
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-brand-text-dim)]">
+                      {d.dishes.join(" · ")}
                     </p>
                   )}
                 </div>
                 <span className="ml-2 mt-0.5 shrink-0 text-[10px] font-mono text-[var(--color-brand-muted)]">
-                  {new Date(d.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {formatDate(d.date)}
                 </span>
               </li>
             );

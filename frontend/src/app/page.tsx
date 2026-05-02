@@ -5,10 +5,12 @@ import NarrativeSnapshot from "@/components/dashboard/NarrativeSnapshot";
 import DiningLog from "@/components/dashboard/DiningLog";
 import ReflectionsPanel from "@/components/dashboard/ReflectionsPanel";
 import LearningProgress from "@/components/dashboard/LearningProgress";
+import InnerCircleWidget from "@/components/dashboard/InnerCircleWidget";
+import ActiveProjectsWidget from "@/components/dashboard/ActiveProjectsWidget";
 import {
   API_BASE_URL,
   ApiError,
-  type DashboardData,
+  type DashboardPayload,
   type NarrativeData,
   getDashboardData,
   getDashboardNarrative,
@@ -16,7 +18,7 @@ import {
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<DashboardPayload | null>(null);
   const [narrative, setNarrative] = useState<NarrativeData | null>(null);
   const [refDate, setRefDate] = useState<string | null>(null);
   const [latestRefDate, setLatestRefDate] = useState<string | null>(null);
@@ -37,8 +39,8 @@ export default function Dashboard() {
       try {
         const dashboard = await getDashboardData(controller.signal, refDate ?? undefined);
         setData(dashboard);
-        if (!refDate && dashboard.date_range?.end) {
-          setLatestRefDate(dashboard.date_range.end);
+        if (!refDate && dashboard.window?.end) {
+          setLatestRefDate(dashboard.window.end);
         }
       } catch (e) {
         if (controller.signal.aborted) return;
@@ -56,7 +58,7 @@ export default function Dashboard() {
       try {
         setNarrative(await getDashboardNarrative(controller.signal, refDate ?? undefined));
       } catch {
-        // non-critical
+        // non-critical — narrative is supplementary
       } finally {
         if (!controller.signal.aborted) setLoadingNarrative(false);
       }
@@ -68,9 +70,7 @@ export default function Dashboard() {
     return () => controller.abort();
   }, [mounted, refDate]);
 
-  if (!mounted) {
-    return <div className="flex-1" />;
-  }
+  if (!mounted) return <div className="flex-1" />;
 
   if (error) {
     return (
@@ -92,27 +92,36 @@ export default function Dashboard() {
     );
   }
 
-  const uniqueDates = data ? new Set([
-    ...data.dining.map((d) => d.date),
-    ...data.reflections.map((r) => r.date),
-    ...data.learning.map((l) => l.date),
-  ]).size : 0;
-  const canGoPrev = !!data?.date_range && !loadingData;
-  const canGoNext = !!data?.date_range && !!latestRefDate && data.date_range.end < latestRefDate && !loadingData;
+  // ── Stat counts ────────────────────────────────────────────────────
+  const windowEnd = data?.window?.end ?? null;
+  const windowStart = data?.window?.start ?? null;
+
+  const uniqueDates = data
+    ? new Set([
+        ...data.dining.map((d) => d.date),
+        ...data.reflections.map((r) => r.date),
+        ...data.learning.map((l) => l.date),
+        ...data.inner_circle.map((p) => p.last_mention_date),
+        ...data.active_projects.map((p) => p.last_event_date),
+      ]).size
+    : 0;
+
+  // ── Navigation guards ──────────────────────────────────────────────
+  const canGoPrev = !!windowEnd && !loadingData;
+  const canGoNext =
+    !!windowEnd && !!latestRefDate && windowEnd < latestRefDate && !loadingData;
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-5xl px-6 py-8">
+      <div className="mx-auto max-w-6xl px-6 py-8">
         {/* Header */}
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="font-heading text-2xl tracking-tight">
-              Command Center
-            </h1>
+            <h1 className="font-heading text-2xl tracking-tight">Command Center</h1>
             <div className="mt-1.5 flex items-center gap-2">
-              {data?.date_range && (
+              {windowStart && windowEnd && (
                 <p className="text-xs font-mono text-[var(--color-brand-muted)]">
-                  {formatRange(data.date_range.start, data.date_range.end)}
+                  {formatRange(windowStart, windowEnd)}
                 </p>
               )}
               <div className="flex items-center gap-1">
@@ -121,8 +130,8 @@ export default function Dashboard() {
                   aria-label="Previous week"
                   disabled={!canGoPrev}
                   onClick={() => {
-                    if (!data?.date_range?.end) return;
-                    setRefDate(shiftDate(data.date_range.end, -7));
+                    if (!windowEnd) return;
+                    setRefDate(shiftDate(windowEnd, -7));
                   }}
                   className="flex h-6 w-6 items-center justify-center rounded border border-[var(--color-brand-border)] text-[var(--color-brand-text-dim)] transition-colors hover:text-[var(--color-brand-text)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -135,8 +144,8 @@ export default function Dashboard() {
                   aria-label="Next week"
                   disabled={!canGoNext}
                   onClick={() => {
-                    if (!data?.date_range?.end || !latestRefDate) return;
-                    const next = shiftDate(data.date_range.end, 7);
+                    if (!windowEnd || !latestRefDate) return;
+                    const next = shiftDate(windowEnd, 7);
                     setRefDate(next > latestRefDate ? latestRefDate : next);
                   }}
                   className="flex h-6 w-6 items-center justify-center rounded border border-[var(--color-brand-border)] text-[var(--color-brand-text-dim)] transition-colors hover:text-[var(--color-brand-text)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -149,47 +158,57 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Quick stats */}
+          {/* Stat pills */}
           {!loadingData && data?.has_data && (
-            <div className="flex items-center gap-3">
-              <StatPill
-                value={uniqueDates}
-                label="days"
-                color="var(--color-brand-accent)"
-              />
-              <StatPill
-                value={data.dining.length}
-                label="meals"
-                color="var(--color-brand-accent-amber)"
-              />
-              <StatPill
-                value={data.reflections.length}
-                label="insights"
-                color="var(--chart-5)"
-              />
-              <StatPill
-                value={data.learning.length}
-                label="sessions"
-                color="var(--color-brand-accent-green)"
-              />
+            <div className="flex flex-wrap items-center gap-3">
+              <StatPill value={uniqueDates} label="days" color="var(--color-brand-accent)" />
+              <StatPill value={data.dining.length} label="meals" color="var(--color-brand-accent-amber)" />
+              <StatPill value={data.reflections.length} label="insights" color="var(--chart-5)" />
+              <StatPill value={data.learning.length} label="sessions" color="var(--color-brand-accent-green)" />
+              <StatPill value={data.inner_circle_total} label="people" color="var(--chart-3)" />
+              <StatPill value={data.active_projects_total} label="projects" color="var(--chart-4)" />
             </div>
           )}
         </div>
 
-        {/* Widget grid */}
+        {/* ── Widget grid (Q5 fixed layout) ── */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <NarrativeSnapshot
-            content={narrative?.content ?? null}
-            weekStart={narrative?.week_start ?? null}
-            weekEnd={narrative?.week_end ?? null}
-            loading={loadingNarrative}
+          {/* 1. Narrative — full width */}
+          <div className="lg:col-span-2">
+            <NarrativeSnapshot
+              content={narrative?.content ?? null}
+              windowStart={narrative?.window_start ?? null}
+              windowEnd={narrative?.window_end ?? null}
+              cached={narrative?.cached}
+              loading={loadingNarrative}
+            />
+          </div>
+
+          {/* 2. Inner Circle + Active Projects */}
+          <InnerCircleWidget
+            people={data?.inner_circle ?? []}
+            total={data?.inner_circle_total ?? 0}
+            insight={data?.inner_circle_insight ?? null}
+            loading={loadingData}
+          />
+          <ActiveProjectsWidget
+            projects={data?.active_projects ?? []}
+            total={data?.active_projects_total ?? 0}
+            insight={data?.active_projects_insight ?? null}
+            loading={loadingData}
           />
 
+          {/* 3. Dining + Reflections */}
           <DiningLog items={data?.dining ?? []} loading={loadingData} />
           <ReflectionsPanel items={data?.reflections ?? []} loading={loadingData} />
 
+          {/* 4. Learning — full width */}
           <div className="lg:col-span-2">
-            <LearningProgress items={data?.learning ?? []} loading={loadingData} />
+            <LearningProgress
+              items={data?.learning ?? []}
+              bySubject={data?.learning_by_subject ?? []}
+              loading={loadingData}
+            />
           </div>
         </div>
       </div>
@@ -203,7 +222,9 @@ function StatPill({ value, label, color }: { value: number; label: string; color
       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5"
       style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}
     >
-      <span className="text-sm font-bold" style={{ color }}>{value}</span>
+      <span className="text-sm font-bold" style={{ color }}>
+        {value}
+      </span>
       <span className="text-[10px] font-mono text-[var(--color-brand-text-dim)]">{label}</span>
     </div>
   );
@@ -213,7 +234,10 @@ function formatRange(start: string, end: string): string {
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${s.toLocaleDateString("en-US", opts)} \u2014 ${e.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`;
+  return `${s.toLocaleDateString("en-US", opts)} \u2014 ${e.toLocaleDateString("en-US", {
+    ...opts,
+    year: "numeric",
+  })}`;
 }
 
 function shiftDate(isoDate: string, deltaDays: number): string {

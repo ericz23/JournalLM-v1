@@ -33,6 +33,29 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/people",
+    label: "People",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    href: "/projects",
+    label: "Projects",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="5" height="14" rx="1" />
+        <rect x="10" y="3" width="5" height="9" rx="1" />
+        <rect x="17" y="3" width="4" height="11" rx="1" />
+      </svg>
+    ),
+  },
+  {
     href: "/chat",
     label: "Chat",
     icon: (
