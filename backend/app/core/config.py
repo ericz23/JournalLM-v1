@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 from pydantic_settings import BaseSettings
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -32,6 +33,17 @@ class Settings(BaseSettings):
     DASHBOARD_DORMANCY_DAYS: int = 14
     DASHBOARD_PROJECT_RECENT_DAYS: int = 28
     NARRATIVE_REFLECTION_LOOKBACK_DAYS: int = 28
+
+    # Step 9 §4 — embedding pipeline tunables.
+    # journal_only: embed raw_content only (V1 behaviour, hash-stable on re-shred).
+    # journal_plus_structured: append life_events + reflections digest after raw prose.
+    EMBEDDING_CHUNK_MODE: Literal["journal_only", "journal_plus_structured"] = "journal_only"
+    # When True and mode is journal_plus_structured, shredder NULLs embed_input_hash
+    # after each successful entry commit so the next embed pass rebuilds vectors.
+    EMBEDDING_INVALIDATE_ON_SHRED: bool = True
+    # When True, embed the entry inline after each shred commit (adds latency; leave
+    # False for bulk operations; useful for single-entry dev UX).
+    EMBEDDING_SYNC_AFTER_SHRED: bool = False
 
     FRONTEND_URL: str = "http://localhost:3000"
 

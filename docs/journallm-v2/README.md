@@ -13,7 +13,7 @@ Detailed specs live **one Markdown file per implementation step**, aligned with 
 | 6 | [06-backfill-and-operations.md](./06-backfill-and-operations.md) | Complete |
 | 7 | [07-dashboard-data-layer.md](./07-dashboard-data-layer.md) | Complete |
 | 8 | [08-dashboard-editorial-ui.md](./08-dashboard-editorial-ui.md) | Complete |
-| 9 | [09-embeddings-and-rag.md](./09-embeddings-and-rag.md) | Stub |
+| 9 | [09-embeddings-and-rag.md](./09-embeddings-and-rag.md) | Complete |
 | 10 | [10-people-and-projects-pages.md](./10-people-and-projects-pages.md) | Stub |
 | 11 | [11-entity-aware-chat-retrieval.md](./11-entity-aware-chat-retrieval.md) | Stub |
 | 12 | [12-coach-chat-mode.md](./12-coach-chat-mode.md) | Stub |

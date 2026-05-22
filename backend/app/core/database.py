@@ -185,6 +185,19 @@ async def _migrate_life_events_sentiment(conn) -> None:
     logger.info("life_events sentiment migration complete.")
 
 
+async def _migrate_embed_input_hash(conn) -> None:
+    """Step 9 §5.1: add embed_input_hash column to journal_entries.
+
+    NULL for all existing rows — drives a rebuild on the next embed pass,
+    which is the safe default (no stale vectors in the index).
+    """
+    if not await _column_exists(conn, "journal_entries", "embed_input_hash"):
+        logger.info("Adding embed_input_hash column to journal_entries...")
+        await conn.execute(text(
+            "ALTER TABLE journal_entries ADD COLUMN embed_input_hash TEXT"
+        ))
+
+
 async def _migrate_narrative_cache_window_end(conn) -> None:
     """Step 7 §11.1: add window_end + stale_at to narrative_cache.
 
@@ -279,6 +292,7 @@ async def init_db() -> None:
 
         await _migrate_embeddings_to_vec0(conn)
         await _migrate_add_is_temporary(conn)
+        await _migrate_embed_input_hash(conn)
         await _migrate_narrative_cache_window_end(conn)
         await _migrate_dashboard_indices(conn)
         await _cleanup_temp_sessions(conn)

@@ -71,6 +71,9 @@ async def ingest_journals(
                 # Step 6 §6.3: purge stale embeddings so the next /api/chat/embed
                 # regenerates chunks instead of skipping the entry as "already embedded".
                 await purge_entry_embeddings(db, existing.entry_date)
+                # Step 9 §9: NULL embed_input_hash so embed_journals always rebuilds
+                # on the next pass, regardless of chunk mode.
+                existing.embed_input_hash = None
                 result.updated += 1
 
         except Exception as exc:

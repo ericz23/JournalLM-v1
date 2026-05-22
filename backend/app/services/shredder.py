@@ -25,6 +25,10 @@ from app.models.journal_reflection import JournalReflection
 from app.models.life_event import EventCategory, LifeEvent, SentimentLabel
 from app.services.entity_resolution import resolve_entry
 from app.services.narrative import mark_narrative_stale_for_date
+from app.services.embeddings import (
+    embed_single_entry,
+    mark_embeddings_stale_for_date,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,9 +156,17 @@ Rules:
 
 ━━━ 3. PEOPLE MENTIONED ━━━
 
-Extract explicit person mentions as surface strings only (do not resolve identity).
-For each person mention include:
-• name
+Extract NAMED INDIVIDUALS only — people who are referred to by a proper name (given name, surname, nickname, or initials).
+
+DO NOT extract:
+• Job titles, roles, or professions (e.g. "carpenter", "structural engineer", "the contractor", "my therapist", "a barista")
+• Generic relationship terms without a name (e.g. "my friend", "the team", "a colleague")
+• Unnamed individuals described only by their function
+
+RULE: if you cannot replace the reference with an actual name, do NOT include it.
+
+For each named person mention include:
+• name — the name as it appears in the journal (proper noun, e.g. "Sam", "Dr. Nguyen", "Aunt Rosa")
 • relationship_hint (friend, colleague, family, client, etc.) if inferable
 • interaction_context (supporting snippet)
 • linked_event_hint (optional)
@@ -275,7 +287,7 @@ def _is_valid_project_event_type(raw: str) -> bool:
 
 # ── Public version constant ──────────────────────────────────────────
 
-SHREDDER_VERSION = "v2.2"
+SHREDDER_VERSION = "v2.3"  # Step 9 hotfix: named-person-only extraction prompt
 
 
 # ── Per-entry processing ─────────────────────────────────────────────
@@ -392,7 +404,28 @@ async def process_single_entry(
         # contains this entry_date. Idempotent no-op when no rows match.
         await mark_narrative_stale_for_date(db, entry_date)
 
+        # Step 9 §8 — when journal_plus_structured mode is active, NULL the
+        # embed_input_hash so the next embed pass rebuilds vectors to include
+        # the fresh structured digest (Q4-consistent invalidation).
+        if (
+            settings.EMBEDDING_CHUNK_MODE == "journal_plus_structured"
+            and settings.EMBEDDING_INVALIDATE_ON_SHRED
+        ):
+            await mark_embeddings_stale_for_date(db, entry_date)
+
         await db.commit()
+
+        # Optional: sync embed inline after shred. Off by default — adds
+        # Gemini latency to every shred call; useful for single-date dev UX.
+        if (
+            settings.EMBEDDING_CHUNK_MODE == "journal_plus_structured"
+            and settings.EMBEDDING_INVALIDATE_ON_SHRED
+            and settings.EMBEDDING_SYNC_AFTER_SHRED
+        ):
+            try:
+                await embed_single_entry(db, entry_date)
+            except Exception as exc:
+                logger.warning("Sync embed failed for %s (non-fatal): %s", entry_date, exc)
 
     except Exception as exc:
         await db.rollback()

@@ -90,6 +90,88 @@ def _tokens(s: str) -> list[str]:
     return [t for t in re.split(r"\s+", s.lower()) if t]
 
 
+# ── Named-person guard ───────────────────────────────────────────────
+
+# Common occupational, relational, and generic role words that should never
+# produce a person proposal. Matched case-insensitively against individual
+# tokens in the surface string.
+_ROLE_TOKENS: frozenset[str] = frozenset({
+    # Trades / construction
+    "carpenter", "carpenters", "contractor", "contractors", "electrician",
+    "electricians", "plumber", "plumbers", "engineer", "engineers",
+    "architect", "architects", "builder", "builders", "mason", "masons",
+    "roofer", "roofers", "inspector", "inspectors", "surveyor", "surveyors",
+    "painter", "painters", "welder", "welders", "mechanic", "mechanics",
+    # Professional services
+    "therapist", "therapists", "counselor", "counselors", "doctor", "doctors",
+    "physician", "physicians", "nurse", "nurses", "dentist", "dentists",
+    "lawyer", "lawyers", "attorney", "attorneys", "accountant", "accountants",
+    "consultant", "consultants", "advisor", "advisors", "analyst", "analysts",
+    "designer", "designers", "developer", "developers", "programmer",
+    "programmers", "researcher", "researchers",
+    # Generic relational
+    "colleague", "colleagues", "coworker", "coworkers", "teammate",
+    "teammates", "manager", "managers", "boss", "client", "clients",
+    "customer", "customers", "vendor", "vendors", "supplier", "suppliers",
+    "assistant", "assistants", "intern", "interns", "staff", "employee",
+    "employees", "worker", "workers",
+    # Hospitality / service
+    "barista", "baristas", "waiter", "waitress", "server", "servers",
+    "bartender", "bartenders", "chef", "chefs", "cashier", "cashiers",
+    "receptionist", "receptionists",
+    # Generic terms
+    "person", "people", "someone", "anyone", "nobody", "everybody",
+    "everyone", "individual", "individuals", "stranger", "strangers",
+    "neighbor", "neighbors", "neighbour", "neighbours",
+    # Relational without names
+    "friend", "friends", "acquaintance", "acquaintances",
+    "partner", "spouse", "husband", "wife",
+    "parent", "parents", "mother", "father", "mom", "dad",
+    "sibling", "siblings", "brother", "sister", "son", "daughter",
+    "uncle", "aunt", "cousin", "grandparent", "grandfather", "grandmother",
+    "grandma", "grandpa",
+})
+
+
+def _is_role_not_person(surface: str) -> bool:
+    """Return True when the surface string looks like a role/occupation rather
+    than a named individual.
+
+    Two signals evaluated in order:
+
+    Signal 1 — role token match without an accompanying proper name:
+      If the surface contains a known role word (e.g. "aunt", "carpenter"),
+      it is still accepted when at least one *other* token starts with an
+      uppercase letter and is not itself a role word — e.g. "Aunt Rosa" passes
+      because "Rosa" is a capitalised non-role token, while "aunt" alone fails.
+
+    Signal 2 — fully lowercase surface with no uppercase characters:
+      Proper names almost always contain at least one capitalised word in
+      English prose. A surface with zero uppercase characters is almost
+      certainly a generic description, not a name.
+    """
+    raw_tokens = [t for t in re.split(r"[\s\-/]+", surface.strip()) if t]
+    lower_tokens = [t.lower().strip(".,;:\"'()") for t in raw_tokens]
+
+    # Signal 1: role token present.
+    has_role = any(t in _ROLE_TOKENS for t in lower_tokens)
+    if has_role:
+        # Accept if there is at least one capitalised token that is not itself
+        # a role word — handles "Aunt Rosa", "Uncle James", etc.
+        has_proper_name_token = any(
+            t[0].isupper() and t.lower().strip(".,;:\"'()") not in _ROLE_TOKENS
+            for t in raw_tokens
+        )
+        if not has_proper_name_token:
+            return True
+
+    # Signal 2: no uppercase character anywhere.
+    if re.search(r"[A-Z]", surface) is None:
+        return True
+
+    return False
+
+
 # ── Alias utilities ──────────────────────────────────────────────────
 
 
@@ -555,6 +637,10 @@ async def resolve_entry(
         for item in getattr(extraction, "people_mentioned", []) or []:
             surface = _normalize_surface(getattr(item, "name", None))
             if not surface:
+                continue
+
+            if _is_role_not_person(surface):
+                logger.debug("Skipping role/non-named person surface: %r", surface)
                 continue
 
             if await _is_blocked(db, ProposalEntityType.PERSON, surface):

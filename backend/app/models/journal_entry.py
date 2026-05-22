@@ -23,6 +23,9 @@ class JournalEntry(TimestampMixin, Base):
     processed_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Step 9 §5.1: SHA-256 of the canonical pre-chunk source string.
+    # NULL = never embedded or explicitly invalidated — triggers rebuild on next embed pass.
+    embed_input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     life_events: Mapped[list["LifeEvent"]] = relationship(  # noqa: F821
         back_populates="journal_entry", cascade="all, delete-orphan"

@@ -2,6 +2,15 @@
 
 Stage 1: Gemini classifies the user query into structured filters.
 Stage 2: Structured SQL retrieval + semantic search, merged into a context block.
+
+Step 9 additions:
+- ParsedIntent gains entity_focus / entity_names / prefers_entity_sql fields.
+- INTENT_SYSTEM_PROMPT extended with entity parsing guidance.
+- Stub retrievers _retrieve_person_entities / _retrieve_project_entities
+  (real SQL wired in Step 11).
+- retrieve() wires entity stubs into merge order when entity signals present.
+- SemanticHit.chunk_index threaded into journal_chunk metadata.
+- DEDUP_PREFIX_LEN raised to 160 chars (avoids false-dedup with digest chunks).
 """
 
 from __future__ import annotations
@@ -11,6 +20,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Literal
 
 from google import genai
 from google.genai import types
@@ -23,7 +33,7 @@ from app.models.health_metric import HealthMetric
 from app.models.journal_entry import JournalEntry
 from app.models.journal_reflection import JournalReflection
 from app.models.life_event import EventCategory, LifeEvent
-from app.services.embeddings import SemanticHit, semantic_search
+from app.services.embeddings import EMBEDDING_MODEL, SemanticHit, semantic_search
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +52,11 @@ class ParsedIntent(BaseModel):
     date_end: str | None = None  # ISO date
     categories: list[str] = []
     keywords: list[str] = []
+
+    # Step 9 §11.1 — entity routing placeholders (consumed by Step 11 SQL retrievers).
+    entity_focus: Literal["none", "person", "project", "ambiguous"] = "none"
+    entity_names: list[str] = []
+    prefers_entity_sql: bool = False
 
 
 INTENT_SYSTEM_PROMPT = """\
@@ -65,6 +80,15 @@ LEARNING, HEALTH, TRAVEL, PERSONAL]. Only include if the query clearly targets \
 specific categories.
 - keywords: important entity names (people, restaurants, projects, places) \
 mentioned in the query. Extract proper nouns and specific terms.
+- entity_focus: "person" if the question is primarily about a specific human \
+relationship, last time seeing someone, or social interactions with a named \
+person. "project" if primarily about a named initiative, workstream, or side \
+project. "ambiguous" if both. "none" otherwise.
+- entity_names: proper names or known project titles the user is asking about \
+(strings, e.g. ["Sam", "Portuguese project"]).
+- prefers_entity_sql: true when the user likely needs structured rows \
+(last_seen_date, mention timeline) rather than thematic similarity alone — \
+e.g. "when did I last", "how many times", "who did I see".
 
 Return ONLY the JSON object, no other text.
 """
@@ -121,6 +145,7 @@ async def classify_intent(
 @dataclass
 class ContextItem:
     type: str  # "life_event" | "reflection" | "health_metric" | "journal_chunk"
+    #           # Step 11 will add: "person_mention" | "project_event"
     date: str
     content: str
     metadata: dict = field(default_factory=dict)
@@ -280,6 +305,44 @@ async def _retrieve_health_metrics(
     return items
 
 
+# ── Step 9 §11.3 — Entity stub retrievers (real SQL wired in Step 11) ──
+
+
+async def _retrieve_person_entities(
+    db: AsyncSession,
+    intent: ParsedIntent,
+) -> list[ContextItem]:
+    """Step 11: query people / person_mentions. Step 9 stub returns [].
+
+    Future metadata keys:
+      person_id, canonical_name, relationship_type, mention_date,
+      context_snippet, sentiment.
+    """
+    if intent.entity_focus in ("person", "ambiguous") or intent.prefers_entity_sql:
+        logger.debug(
+            "entity stub: entity_focus=%s entity_names=%s — person SQL rows pending Step 11",
+            intent.entity_focus, intent.entity_names,
+        )
+    return []
+
+
+async def _retrieve_project_entities(
+    db: AsyncSession,
+    intent: ParsedIntent,
+) -> list[ContextItem]:
+    """Step 11: query projects / project_events. Step 9 stub returns [].
+
+    Future metadata keys:
+      project_id, project_name, event_type, event_date, content.
+    """
+    if intent.entity_focus in ("project", "ambiguous") or intent.prefers_entity_sql:
+        logger.debug(
+            "entity stub: entity_focus=%s entity_names=%s — project SQL rows pending Step 11",
+            intent.entity_focus, intent.entity_names,
+        )
+    return []
+
+
 # ── Full retrieval pipeline ──────────────────────────────────────────
 
 
@@ -290,12 +353,18 @@ class RetrievalResult:
     date_range: tuple[str, str] = ("unknown", "unknown")
 
 
+# Prefix length for dedup; raised from 100 to 160 to avoid false-dedup
+# when journal_plus_structured chunks overlap with event description text.
+_DEDUP_PREFIX = 160
+
+
 async def retrieve(db: AsyncSession, query: str) -> RetrievalResult:
     intent = await classify_intent(db, query)
     date_range = await _get_date_range(db)
 
     result = RetrievalResult(intent=intent, date_range=date_range)
 
+    # Stage 2a: structured SQL retrieval.
     events = await _retrieve_life_events(db, intent)
     reflections = await _retrieve_reflections(db, intent)
     health = await _retrieve_health_metrics(db, intent)
@@ -304,17 +373,35 @@ async def retrieve(db: AsyncSession, query: str) -> RetrievalResult:
     result.context_items.extend(reflections)
     result.context_items.extend(health)
 
+    # Stage 2b: Step 9 entity stubs (no rows returned until Step 11).
+    needs_entity = (
+        intent.prefers_entity_sql
+        or intent.entity_focus in ("person", "project", "ambiguous")
+    )
+    if needs_entity:
+        person_items = await _retrieve_person_entities(db, intent)
+        project_items = await _retrieve_project_entities(db, intent)
+        result.context_items.extend(person_items)
+        result.context_items.extend(project_items)
+
+    # Stage 2c: semantic search when query is thematic / open-ended or when
+    # structured retrieval returns very few items.
     if intent.query_type in ("THEMATIC", "META") or len(result.context_items) < 3:
         try:
             hits: list[SemanticHit] = await semantic_search(db, query, top_k=5)
-            seen_texts = {item.content[:100] for item in result.context_items}
+            seen_texts = {item.content[:_DEDUP_PREFIX] for item in result.context_items}
             for hit in hits:
-                if hit.chunk_text[:100] not in seen_texts:
+                if hit.chunk_text[:_DEDUP_PREFIX] not in seen_texts:
                     result.context_items.append(ContextItem(
                         type="journal_chunk",
                         date=hit.entry_date,
                         content=hit.chunk_text,
-                        metadata={"similarity": hit.score},
+                        metadata={
+                            "similarity": hit.score,
+                            "embedding_model": EMBEDDING_MODEL,
+                            "chunk_mode": settings.EMBEDDING_CHUNK_MODE,
+                            "chunk_index": hit.chunk_index,
+                        },
                     ))
         except Exception as exc:
             logger.warning("Semantic search failed (embeddings may not exist): %s", exc)
